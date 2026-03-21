@@ -106,26 +106,27 @@ public class AuthService : IAuthService
     }
 
     public async Task<UserProfileResponseDto> GetCurrentUserProfileAsync(int userId)
-{
-    var user = await _context.Users
-        .Include(u => u.Profile)
-        .FirstOrDefaultAsync(u => u.Id == userId);
-
-    if (user == null)
     {
-        throw new Exception("A felhasználó nem található.");
+        var user = await _context.Users
+            .Include(u => u.Profile)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+        {
+            throw new Exception("A felhasználó nem található.");
+        }
+
+        return new UserProfileResponseDto
+        {
+            UserId = user.Id,
+            Name = user.Name,
+            Email = user.Email,
+            Level = user.Profile?.Level,
+            Goal = user.Profile?.Goal,
+            Age = user.Profile?.Age,
+            Height = user.Profile?.Height,
+            Weight = user.Profile?.Weight
+        };
     }
 
-    return new UserProfileResponseDto
-    {
-        UserId = user.Id,
-        Name = user.Name,
-        Email = user.Email,
-        Level = user.Profile?.Level,
-        Goal = user.Profile?.Goal,
-        Age = user.Profile?.Age,
-        Height = user.Profile?.Height,
-        Weight = user.Profile?.Weight
-    };
-}
 }
