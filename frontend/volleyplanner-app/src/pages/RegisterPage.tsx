@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AxiosError } from "axios";
 import { authService } from "../services/authService";
+import "../styles/auth.css";
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ function RegisterPage() {
 
     try {
       await authService.register(formData);
-      setSuccessMessage("Sikeres regisztráció! Most jelentkezz be.");
+      setSuccessMessage("Sikeres regisztráció! Átirányítás bejelentkezéshez...");
       setTimeout(() => navigate("/"), 1200);
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
@@ -45,60 +46,65 @@ function RegisterPage() {
   };
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
-      <h1>Regisztráció</h1>
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="name">Név</label>
-          <input
-            id="name"
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-            required
-          />
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <h1>VolleyMind</h1>
+          <p>Hozd létre a fiókodat, és kezdd el az edzéstervezést</p>
         </div>
 
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-            required
-          />
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="auth-field">
+            <label htmlFor="name">Felhasználónév</label>
+            <input
+              id="name"
+              type="text"
+              name="name"
+              placeholder="Add meg a neved"
+              value={formData.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="email">Email cím</label>
+            <input
+              id="email"
+              type="email"
+              name="email"
+              placeholder="pelda@email.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="password">Jelszó</label>
+            <input
+              id="password"
+              type="password"
+              name="password"
+              placeholder="Adj meg egy biztonságos jelszót"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+          {successMessage && <div className="auth-success">{successMessage}</div>}
+
+          <button className="auth-button" type="submit" disabled={loading}>
+            {loading ? "Regisztráció..." : "Regisztráció"}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          Van már fiókod? <Link to="/">Bejelentkezés</Link>
         </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="password">Jelszó</label>
-          <input
-            id="password"
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-            required
-          />
-        </div>
-
-        {error && <p style={{ color: "red" }}>{error}</p>}
-        {successMessage && <p style={{ color: "green" }}>{successMessage}</p>}
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Regisztráció..." : "Regisztráció"}
-        </button>
-      </form>
-
-      <p style={{ marginTop: "1rem" }}>
-        Van már fiókod? <Link to="/">Bejelentkezés</Link>
-      </p>
+      </div>
     </div>
   );
 }

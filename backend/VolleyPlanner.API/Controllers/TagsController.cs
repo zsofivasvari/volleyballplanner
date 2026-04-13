@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VolleyPlanner.API.Data;
 using VolleyPlanner.API.DTOs.Exercise;
+using VolleyPlanner.API.Enums;
 
 namespace VolleyPlanner.API.Controllers;
 
@@ -17,9 +18,22 @@ public class TagsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<TagDto>>> GetAll()
+    public async Task<ActionResult<IEnumerable<TagDto>>> GetAll([FromQuery] string? type = null)
     {
-        var tags = await _context.Tags
+        var query = _context.Tags.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            if (!Enum.TryParse<TagType>(type, true, out var parsedType))
+            {
+                return BadRequest(new { message = "Érvénytelen tag típus." });
+            }
+
+            query = query.Where(t => t.Type == parsedType);
+        }
+
+        var tags = await query
+            .OrderBy(t => t.Name)
             .Select(t => new TagDto
             {
                 Id = t.Id,

@@ -22,11 +22,20 @@ export interface ExerciseDetails {
   maxPlayers: number;
   phase: string;
   tags: string[];
+  focusTags: string[];
 }
 
 export interface ExerciseQuery {
-  sportType?: string;
-  difficulty?: string;
-  intensity?: string;
-  phase?: string;
+  sportTypes: string[];
+  difficulties: string[];
+  intensities: string[];
+  phases: string[];
+}
+
+export interface PagedExercisesResponse {
+  items: ExerciseListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }

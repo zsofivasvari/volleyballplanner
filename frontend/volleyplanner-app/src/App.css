@@ -182,3 +182,58 @@
     border-right-color: var(--border);
   }
 }
+
+.week-calendar {
+  display: grid;
+  grid-template-columns: 80px repeat(7, 1fr);
+  border: 1px solid #cfe2f3;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.time-column {
+  background: #f4f9ff;
+  border-right: 1px solid #dbeaf5;
+}
+
+.time-cell {
+  height: 60px;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  color: #4c6e8c;
+  border-bottom: 1px solid #e3eff8;
+}
+
+.day-column {
+  border-right: 1px solid #e3eff8;
+  position: relative;
+}
+
+.day-header {
+  background: #f4f9ff;
+  padding: 0.75rem;
+  border-bottom: 1px solid #e3eff8;
+  font-weight: 700;
+  text-align: center;
+}
+
+.day-grid {
+  position: relative;
+}
+
+.hour-slot {
+  height: 60px;
+  border-bottom: 1px solid #eaf3fa;
+}
+
+.event-block {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  background: linear-gradient(135deg, #6ee7ff, #148fd0);
+  color: #07324e;
+  border-radius: 12px;
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  box-shadow: 0 8px 16px rgba(20, 143, 208, 0.2);
+}

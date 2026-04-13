@@ -1,16 +1,45 @@
 import api from "../api/axios";
 import type {
   ExerciseDetails,
-  ExerciseListItem,
   ExerciseQuery,
+  PagedExercisesResponse,
 } from "../types/exercise";
 import type { CreateExerciseRequest } from "../types/createExercise";
 
 export const exerciseService = {
-  async getAll(filters?: ExerciseQuery): Promise<ExerciseListItem[]> {
-    const response = await api.get<ExerciseListItem[]>("/Exercises", {
-      params: filters,
+  async getAll(
+    filters?: ExerciseQuery & { page?: number; pageSize?: number }
+  ): Promise<PagedExercisesResponse> {
+    const params = new URLSearchParams();
+
+    filters?.sportTypes?.forEach((value) => {
+      params.append("SportTypes", value);
     });
+
+    filters?.difficulties?.forEach((value) => {
+      params.append("Difficulties", value);
+    });
+
+    filters?.intensities?.forEach((value) => {
+      params.append("Intensities", value);
+    });
+
+    filters?.phases?.forEach((value) => {
+      params.append("Phases", value);
+    });
+
+    if (filters?.page) {
+      params.append("Page", filters.page.toString());
+    }
+
+    if (filters?.pageSize) {
+      params.append("PageSize", filters.pageSize.toString());
+    }
+
+    const response = await api.get<PagedExercisesResponse>(
+      `/Exercises?${params.toString()}`
+    );
+
     return response.data;
   },
 

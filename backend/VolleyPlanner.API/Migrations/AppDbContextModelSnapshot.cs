@@ -22,6 +22,49 @@ namespace VolleyPlanner.API.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("VolleyPlanner.API.Entities.CalendarEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SportType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TrainingPlanId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TrainingPlanId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CalendarEvents");
+                });
+
             modelBuilder.Entity("VolleyPlanner.API.Entities.Exercise", b =>
                 {
                     b.Property<int>("Id")
@@ -82,6 +125,53 @@ namespace VolleyPlanner.API.Migrations
                     b.ToTable("ExerciseTags");
                 });
 
+            modelBuilder.Entity("VolleyPlanner.API.Entities.GenerationRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AvailableEquipment")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DurationMin")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Intensity")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PlayerCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PrimaryFocus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SportType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GenerationRequests");
+                });
+
             modelBuilder.Entity("VolleyPlanner.API.Entities.Tag", b =>
                 {
                     b.Property<int>("Id")
@@ -102,6 +192,86 @@ namespace VolleyPlanner.API.Migrations
                     b.ToTable("Tags");
                 });
 
+            modelBuilder.Entity("VolleyPlanner.API.Entities.TrainingPlan", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PlanType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PrimaryFocus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SportType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TargetDuration")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetIntensity")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetLevel")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TrainingPlans");
+                });
+
+            modelBuilder.Entity("VolleyPlanner.API.Entities.TrainingPlanItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ExerciseId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlannedDuration")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SectionName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TrainingPlanId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExerciseId");
+
+                    b.HasIndex("TrainingPlanId");
+
+                    b.ToTable("TrainingPlanItems");
+                });
+
             modelBuilder.Entity("VolleyPlanner.API.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -117,11 +287,30 @@ namespace VolleyPlanner.API.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("EmailConfirmationToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EmailConfirmationTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsEmailConfirmed")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PasswordResetToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PasswordResetTokenExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -167,6 +356,25 @@ namespace VolleyPlanner.API.Migrations
                     b.ToTable("UserProfiles");
                 });
 
+            modelBuilder.Entity("VolleyPlanner.API.Entities.CalendarEvent", b =>
+                {
+                    b.HasOne("VolleyPlanner.API.Entities.TrainingPlan", "TrainingPlan")
+                        .WithMany("CalendarEvents")
+                        .HasForeignKey("TrainingPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VolleyPlanner.API.Entities.User", "User")
+                        .WithMany("CalendarEvents")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("TrainingPlan");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("VolleyPlanner.API.Entities.ExerciseTag", b =>
                 {
                     b.HasOne("VolleyPlanner.API.Entities.Exercise", "Exercise")
@@ -184,6 +392,47 @@ namespace VolleyPlanner.API.Migrations
                     b.Navigation("Exercise");
 
                     b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("VolleyPlanner.API.Entities.GenerationRequest", b =>
+                {
+                    b.HasOne("VolleyPlanner.API.Entities.User", "User")
+                        .WithMany("GenerationRequests")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VolleyPlanner.API.Entities.TrainingPlan", b =>
+                {
+                    b.HasOne("VolleyPlanner.API.Entities.User", "User")
+                        .WithMany("TrainingPlans")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VolleyPlanner.API.Entities.TrainingPlanItem", b =>
+                {
+                    b.HasOne("VolleyPlanner.API.Entities.Exercise", "Exercise")
+                        .WithMany()
+                        .HasForeignKey("ExerciseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("VolleyPlanner.API.Entities.TrainingPlan", "TrainingPlan")
+                        .WithMany("Items")
+                        .HasForeignKey("TrainingPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Exercise");
+
+                    b.Navigation("TrainingPlan");
                 });
 
             modelBuilder.Entity("VolleyPlanner.API.Entities.UserProfile", b =>
@@ -207,9 +456,22 @@ namespace VolleyPlanner.API.Migrations
                     b.Navigation("ExerciseTags");
                 });
 
+            modelBuilder.Entity("VolleyPlanner.API.Entities.TrainingPlan", b =>
+                {
+                    b.Navigation("CalendarEvents");
+
+                    b.Navigation("Items");
+                });
+
             modelBuilder.Entity("VolleyPlanner.API.Entities.User", b =>
                 {
+                    b.Navigation("CalendarEvents");
+
+                    b.Navigation("GenerationRequests");
+
                     b.Navigation("Profile");
+
+                    b.Navigation("TrainingPlans");
                 });
 #pragma warning restore 612, 618
         }

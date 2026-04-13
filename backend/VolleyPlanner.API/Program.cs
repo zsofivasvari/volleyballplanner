@@ -6,6 +6,7 @@ using Microsoft.OpenApi.Models;
 using VolleyPlanner.API.Data;
 using VolleyPlanner.API.Interfaces;
 using VolleyPlanner.API.Services;
+using VolleyPlanner.API.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("EmailSettings"));
+
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
@@ -59,6 +65,8 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
+builder.Services.AddScoped<IGenerationService, GenerationService>();
 
 var app = builder.Build();
 

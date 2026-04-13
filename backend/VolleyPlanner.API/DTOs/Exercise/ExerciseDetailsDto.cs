@@ -12,5 +12,7 @@ public class ExerciseDetailsDto
     public int MinPlayers { get; set; }
     public int MaxPlayers { get; set; }
     public string Phase { get; set; } = string.Empty;
+
     public List<string> Tags { get; set; } = new();
+    public List<string> FocusTags { get; set; } = new();
 }

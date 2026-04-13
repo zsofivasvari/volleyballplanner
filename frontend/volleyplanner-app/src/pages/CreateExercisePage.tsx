@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AxiosError } from "axios";
 import { Link, useNavigate } from "react-router-dom";
+import AppLayout from "../components/layout/AppLayout";
 import { exerciseService } from "../services/exerciseService";
 import { tagService } from "../services/tagService";
+import { isAdmin } from "../utils/auth";
 import type { Tag } from "../types/tag";
 
 function CreateExercisePage() {
@@ -26,7 +28,13 @@ function CreateExercisePage() {
     tagIds: [] as number[],
   });
 
+  const admin = isAdmin();
+
   useEffect(() => {
+    if (!admin) {
+      return;
+    }
+
     const loadTags = async () => {
       try {
         const data = await tagService.getAll();
@@ -39,10 +47,20 @@ function CreateExercisePage() {
     };
 
     void loadTags();
-  }, []);
+  }, [admin]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  const focusTags = useMemo(
+    () => tags.filter((tag) => tag.type === "Focus"),
+    [tags]
+  );
+
+  const otherTags = useMemo(
+    () => tags.filter((tag) => tag.type !== "Focus"),
+    [tags]
+  );
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
 
@@ -57,6 +75,16 @@ function CreateExercisePage() {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
+    }));
+  };
+
+  const handleChoiceChange = (
+    field: "sportType" | "difficulty" | "intensity" | "phase",
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
     }));
   };
 
@@ -78,184 +106,300 @@ function CreateExercisePage() {
     setError("");
     setSuccessMessage("");
 
+    if (!admin) {
+      setError("Ehhez a művelethez admin jogosultság szükséges.");
+      return;
+    }
+
+    if (formData.minPlayers > formData.maxPlayers) {
+      setError("A minimum játékosszám nem lehet nagyobb, mint a maximum.");
+      return;
+    }
+
+    if (focusTags.length > 0) {
+      const selectedFocusCount = focusTags.filter((tag) =>
+        formData.tagIds.includes(tag.id)
+      ).length;
+
+      if (selectedFocusCount === 0) {
+        setError("Válassz ki legalább egy fókuszterületet.");
+        return;
+      }
+    }
+
     try {
       await exerciseService.create(formData);
       setSuccessMessage("A gyakorlat sikeresen létrejött.");
       setTimeout(() => navigate("/exercises"), 1000);
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
-        setError(err.response?.data?.message || "Sikertelen mentés.");
+        if (err.response?.status === 403) {
+          setError("Ehhez a művelethez admin jogosultság szükséges.");
+        } else {
+          setError(err.response?.data?.message || "Sikertelen mentés.");
+        }
       } else {
         setError("Sikertelen mentés.");
       }
     }
   };
 
+  if (!admin) {
+    return (
+      <AppLayout
+        title="Nincs hozzáférés"
+        subtitle="Ehhez az oldalhoz nincs jogosultságod."
+      >
+        <section className="card">
+          <p className="error-text">
+            Új gyakorlatot csak admin felhasználó hozhat létre.
+          </p>
+
+          <div className="toolbar" style={{ marginTop: "1rem" }}>
+            <Link
+              to="/exercises"
+              className="secondary-button"
+              style={{ textDecoration: "none" }}
+            >
+              Vissza a gyakorlatokhoz
+            </Link>
+          </div>
+        </section>
+      </AppLayout>
+    );
+  }
+
   return (
-    <div style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
-      <Link to="/exercises">← Vissza a gyakorlatokhoz</Link>
+    <AppLayout
+      title="Új gyakorlat létrehozása"
+      subtitle="Adj hozzá új strandröplabda vagy kondi gyakorlatot az adatbázishoz."
+    >
+      <div className="toolbar" style={{ marginBottom: "1.5rem" }}>
+        <Link
+          to="/exercises"
+          className="secondary-button"
+          style={{ textDecoration: "none" }}
+        >
+          Vissza a gyakorlatokhoz
+        </Link>
+      </div>
 
-      <h1 style={{ marginTop: "1rem" }}>Új gyakorlat létrehozása</h1>
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="title">Cím</label>
-          <input
-            id="title"
-            name="title"
-            type="text"
-            value={formData.title}
-            onChange={handleChange}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="description">Leírás</label>
-          <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            required
-            rows={4}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="sportType">Sportág</label>
-          <select
-            id="sportType"
-            name="sportType"
-            value={formData.sportType}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          >
-            <option value="BeachVolleyball">BeachVolleyball</option>
-            <option value="Gym">Gym</option>
-          </select>
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="durationMin">Időtartam (perc)</label>
-          <input
-            id="durationMin"
-            name="durationMin"
-            type="number"
-            value={formData.durationMin}
-            onChange={handleChange}
-            min={1}
-            required
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="difficulty">Nehézség</label>
-          <select
-            id="difficulty"
-            name="difficulty"
-            value={formData.difficulty}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          >
-            <option value="Beginner">Beginner</option>
-            <option value="Intermediate">Intermediate</option>
-            <option value="Advanced">Advanced</option>
-          </select>
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="intensity">Intenzitás</label>
-          <select
-            id="intensity"
-            name="intensity"
-            value={formData.intensity}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          >
-            <option value="Low">Low</option>
-            <option value="Medium">Medium</option>
-            <option value="High">High</option>
-          </select>
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="phase">Fázis</label>
-          <select
-            id="phase"
-            name="phase"
-            value={formData.phase}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-          >
-            <option value="Warmup">Warmup</option>
-            <option value="Main">Main</option>
-            <option value="Cooldown">Cooldown</option>
-          </select>
-        </div>
-
-        <div style={{ marginBottom: "1rem", display: "flex", gap: "1rem" }}>
-          <div style={{ flex: 1 }}>
-            <label htmlFor="minPlayers">Minimum játékos</label>
-            <input
-              id="minPlayers"
-              name="minPlayers"
-              type="number"
-              value={formData.minPlayers}
-              onChange={handleChange}
-              min={1}
-              required
-              style={{ display: "block", width: "100%", padding: "0.5rem" }}
-            />
-          </div>
-
-          <div style={{ flex: 1 }}>
-            <label htmlFor="maxPlayers">Maximum játékos</label>
-            <input
-              id="maxPlayers"
-              name="maxPlayers"
-              type="number"
-              value={formData.maxPlayers}
-              onChange={handleChange}
-              min={1}
-              required
-              style={{ display: "block", width: "100%", padding: "0.5rem" }}
-            />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <h3>Tagek</h3>
-
-          {loadingTags && <p>Tagek betöltése...</p>}
-
-          {!loadingTags && tags.length === 0 && <p>Nincs elérhető tag.</p>}
-
-          {!loadingTags && tags.length > 0 && (
-            <div style={{ display: "grid", gap: "0.5rem" }}>
-              {tags.map((tag) => (
-                <label key={tag.id} style={{ display: "flex", gap: "0.5rem" }}>
-                  <input
-                    type="checkbox"
-                    checked={formData.tagIds.includes(tag.id)}
-                    onChange={() => handleTagChange(tag.id)}
-                  />
-                  {tag.name} ({tag.type})
-                </label>
-              ))}
+      <section className="card">
+        <form onSubmit={handleSubmit}>
+          <div className="filters-grid" style={{ marginBottom: "1rem" }}>
+            <div className="form-field">
+              <label htmlFor="title">Cím</label>
+              <input
+                id="title"
+                name="title"
+                type="text"
+                value={formData.title}
+                onChange={handleInputChange}
+                required
+              />
             </div>
+
+            <div className="form-field">
+              <label htmlFor="durationMin">Időtartam (perc)</label>
+              <input
+                id="durationMin"
+                name="durationMin"
+                type="number"
+                min={1}
+                value={formData.durationMin}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+              <label htmlFor="description">Leírás</label>
+              <textarea
+                id="description"
+                name="description"
+                rows={4}
+                value={formData.description}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label>Sportág</label>
+              <div className="choice-group">
+                {["BeachVolleyball", "Gym"].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`choice-chip ${
+                      formData.sportType === value ? "active" : ""
+                    }`}
+                    onClick={() => handleChoiceChange("sportType", value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label>Nehézség</label>
+              <div className="choice-group">
+                {["Beginner", "Intermediate", "Advanced"].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`choice-chip ${
+                      formData.difficulty === value ? "active" : ""
+                    }`}
+                    onClick={() => handleChoiceChange("difficulty", value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label>Intenzitás</label>
+              <div className="choice-group">
+                {["Low", "Medium", "High"].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`choice-chip ${
+                      formData.intensity === value ? "active" : ""
+                    }`}
+                    onClick={() => handleChoiceChange("intensity", value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label>Fázis</label>
+              <div className="choice-group">
+                {["Warmup", "Main"].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`choice-chip ${
+                      formData.phase === value ? "active" : ""
+                    }`}
+                    onClick={() => handleChoiceChange("phase", value)}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="minPlayers">Minimum játékos</label>
+              <input
+                id="minPlayers"
+                name="minPlayers"
+                type="number"
+                min={1}
+                value={formData.minPlayers}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="maxPlayers">Maximum játékos</label>
+              <input
+                id="maxPlayers"
+                name="maxPlayers"
+                type="number"
+                min={1}
+                value={formData.maxPlayers}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+
+            <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+              <label>Fókuszterületek</label>
+
+              {loadingTags && <p className="info-text">Tagek betöltése...</p>}
+
+              {!loadingTags && focusTags.length === 0 && (
+                <p className="info-text">
+                  Nincs elérhető fókusz tag. Hozd létre a Focus típusú tageket az
+                  adatbázisban.
+                </p>
+              )}
+
+              {!loadingTags && focusTags.length > 0 && (
+                <div className="choice-group">
+                  {focusTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      className={`choice-chip ${
+                        formData.tagIds.includes(tag.id) ? "active" : ""
+                      }`}
+                      onClick={() => handleTagChange(tag.id)}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="form-field" style={{ gridColumn: "1 / -1" }}>
+              <label>Egyéb tagek</label>
+
+              {loadingTags && <p className="info-text">Tagek betöltése...</p>}
+
+              {!loadingTags && otherTags.length === 0 && (
+                <p className="info-text">Nincs egyéb elérhető tag.</p>
+              )}
+
+              {!loadingTags && otherTags.length > 0 && (
+                <div className="choice-group">
+                  {otherTags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      className={`choice-chip ${
+                        formData.tagIds.includes(tag.id) ? "active" : ""
+                      }`}
+                      onClick={() => handleTagChange(tag.id)}
+                    >
+                      {tag.name} ({tag.type})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {error && (
+            <p className="error-text" style={{ marginBottom: "1rem" }}>
+              {error}
+            </p>
           )}
-        </div>
 
-        {error && <p style={{ color: "red" }}>{error}</p>}
-        {successMessage && <p style={{ color: "green" }}>{successMessage}</p>}
+          {successMessage && (
+            <p className="success-text" style={{ marginBottom: "1rem" }}>
+              {successMessage}
+            </p>
+          )}
 
-        <button type="submit">Mentés</button>
-      </form>
-    </div>
+          <div className="toolbar">
+            <button className="primary-button" type="submit">
+              Mentés
+            </button>
+          </div>
+        </form>
+      </section>
+    </AppLayout>
   );
 }
 

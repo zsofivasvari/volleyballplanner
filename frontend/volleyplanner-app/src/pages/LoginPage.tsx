@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AxiosError } from "axios";
 import { authService } from "../services/authService";
+import "../styles/auth.css";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -46,48 +47,55 @@ function LoginPage() {
   };
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
-      <h1>Bejelentkezés</h1>
-
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-            required
-          />
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <h1>VolleyMind</h1>
+          <p>Strandröplabda edzéstervező és fejlődéskövető rendszer</p>
         </div>
 
-        <div style={{ marginBottom: "1rem" }}>
-          <label htmlFor="password">Jelszó</label>
-          <input
-            id="password"
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            style={{ display: "block", width: "100%", padding: "0.5rem" }}
-            required
-          />
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="auth-field">
+            <label htmlFor="email">Email cím</label>
+            <input
+              id="email"
+              type="email"
+              name="email"
+              placeholder="pelda@email.com"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="auth-field">
+            <label htmlFor="password">Jelszó</label>
+            <input
+              id="password"
+              type="password"
+              name="password"
+              placeholder="Add meg a jelszavad"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          <button className="auth-button" type="submit" disabled={loading}>
+            {loading ? "Bejelentkezés..." : "Bejelentkezés"}
+          </button>
+        </form>
+
+        <div style={{ textAlign: "right", marginTop: "0.75rem" }}>
+          <Link to="/forgot-password">Elfelejtetted a jelszavad?</Link>
         </div>
 
-        {error && (
-          <p style={{ color: "red", marginBottom: "1rem" }}>{error}</p>
-        )}
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Bejelentkezés..." : "Bejelentkezés"}
-        </button>
-      </form>
-
-      <p style={{ marginTop: "1rem" }}>
-        Nincs még fiókod? <Link to="/register">Regisztráció</Link>
-      </p>
+        <div className="auth-footer">
+          Nincs még fiókod? <Link to="/register">Regisztráció</Link>
+        </div>
+      </div>
     </div>
   );
 }

@@ -15,6 +15,10 @@ public class AppDbContext : DbContext
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<ExerciseTag> ExerciseTags => Set<ExerciseTag>();
 
+    public DbSet<TrainingPlan> TrainingPlans => Set<TrainingPlan>();
+    public DbSet<TrainingPlanItem> TrainingPlanItems => Set<TrainingPlanItem>();
+    public DbSet<GenerationRequest> GenerationRequests => Set<GenerationRequest>();
+    public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -40,5 +44,41 @@ public class AppDbContext : DbContext
             .HasOne(et => et.Tag)
             .WithMany(t => t.ExerciseTags)
             .HasForeignKey(et => et.TagId);
+
+        modelBuilder.Entity<TrainingPlan>()
+            .HasOne(tp => tp.User)
+            .WithMany(u => u.TrainingPlans)
+            .HasForeignKey(tp => tp.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TrainingPlanItem>()
+            .HasOne(tpi => tpi.TrainingPlan)
+            .WithMany(tp => tp.Items)
+            .HasForeignKey(tpi => tpi.TrainingPlanId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TrainingPlanItem>()
+            .HasOne(tpi => tpi.Exercise)
+            .WithMany()
+            .HasForeignKey(tpi => tpi.ExerciseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<GenerationRequest>()
+            .HasOne(gr => gr.User)
+            .WithMany(u => u.GenerationRequests)
+            .HasForeignKey(gr => gr.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CalendarEvent>()
+            .HasOne(ce => ce.User)
+            .WithMany(u => u.CalendarEvents)
+            .HasForeignKey(ce => ce.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<CalendarEvent>()
+            .HasOne(ce => ce.TrainingPlan)
+            .WithMany(tp => tp.CalendarEvents)
+            .HasForeignKey(ce => ce.TrainingPlanId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

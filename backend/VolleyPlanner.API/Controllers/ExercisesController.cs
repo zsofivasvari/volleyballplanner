@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VolleyPlanner.API.Data;
 using VolleyPlanner.API.DTOs.Exercise;
 using VolleyPlanner.API.Enums;
+using Microsoft.AspNetCore.Authorization;
 
 namespace VolleyPlanner.API.Controllers;
 
@@ -18,45 +19,82 @@ public class ExercisesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ExerciseListItemDto>>> GetAll([FromQuery] ExerciseQueryDto query)
+    public async Task<ActionResult<PagedExercisesResponseDto>> GetAll([FromQuery] ExerciseQueryDto query)
     {
         var exercisesQuery = _context.Exercises.AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(query.SportType) &&
-            Enum.TryParse<Enums.SportType>(query.SportType, true, out var sportType))
+        if (query.SportTypes != null && query.SportTypes.Any())
         {
-            exercisesQuery = exercisesQuery.Where(e => e.SportType == sportType);
+            var parsedSportTypes = query.SportTypes
+                .Select(value => Enum.TryParse<SportType>(value, true, out var parsed) ? parsed : (SportType?)null)
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToList();
+
+            if (parsedSportTypes.Any())
+            {
+                exercisesQuery = exercisesQuery.Where(e => parsedSportTypes.Contains(e.SportType));
+            }
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Difficulty) &&
-            Enum.TryParse<Enums.DifficultyLevel>(query.Difficulty, true, out var difficulty))
+        if (query.Difficulties != null && query.Difficulties.Any())
         {
-            exercisesQuery = exercisesQuery.Where(e => e.Difficulty == difficulty);
+            var parsedDifficulties = query.Difficulties
+                .Select(value => Enum.TryParse<DifficultyLevel>(value, true, out var parsed) ? parsed : (DifficultyLevel?)null)
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToList();
+
+            if (parsedDifficulties.Any())
+            {
+                exercisesQuery = exercisesQuery.Where(e => parsedDifficulties.Contains(e.Difficulty));
+            }
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Intensity) &&
-            Enum.TryParse<Enums.IntensityLevel>(query.Intensity, true, out var intensity))
+        if (query.Intensities != null && query.Intensities.Any())
         {
-            exercisesQuery = exercisesQuery.Where(e => e.Intensity == intensity);
+            var parsedIntensities = query.Intensities
+                .Select(value => Enum.TryParse<IntensityLevel>(value, true, out var parsed) ? parsed : (IntensityLevel?)null)
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToList();
+
+            if (parsedIntensities.Any())
+            {
+                exercisesQuery = exercisesQuery.Where(e => parsedIntensities.Contains(e.Intensity));
+            }
         }
 
-        if (!string.IsNullOrWhiteSpace(query.Phase) &&
-            Enum.TryParse<Enums.ExercisePhase>(query.Phase, true, out var phase))
+        if (query.Phases != null && query.Phases.Any())
         {
-            exercisesQuery = exercisesQuery.Where(e => e.Phase == phase);
+            var parsedPhases = query.Phases
+                .Select(value => Enum.TryParse<ExercisePhase>(value, true, out var parsed) ? parsed : (ExercisePhase?)null)
+                .Where(value => value.HasValue)
+                .Select(value => value!.Value)
+                .ToList();
+
+            if (parsedPhases.Any())
+            {
+                exercisesQuery = exercisesQuery.Where(e => parsedPhases.Contains(e.Phase));
+            }
         }
 
         if (query.MinPlayers.HasValue)
         {
-            exercisesQuery = exercisesQuery.Where(e => e.MaxPlayers >= query.MinPlayers.Value);
+            exercisesQuery = exercisesQuery.Where(e => e.MinPlayers >= query.MinPlayers.Value);
         }
 
         if (query.MaxPlayers.HasValue)
         {
-            exercisesQuery = exercisesQuery.Where(e => e.MinPlayers <= query.MaxPlayers.Value);
+            exercisesQuery = exercisesQuery.Where(e => e.MaxPlayers <= query.MaxPlayers.Value);
         }
 
-        var exercises = await exercisesQuery
+        var totalCount = await exercisesQuery.CountAsync();
+
+        var items = await exercisesQuery
+            .OrderBy(e => e.Title)
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
             .Select(e => new ExerciseListItemDto
             {
                 Id = e.Id,
@@ -71,7 +109,14 @@ public class ExercisesController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(exercises);
+        return Ok(new PagedExercisesResponseDto
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)query.PageSize)
+        });
     }
 
     [HttpGet("{id}")]
@@ -99,10 +144,15 @@ public class ExercisesController : ControllerBase
             MinPlayers = exercise.MinPlayers,
             MaxPlayers = exercise.MaxPlayers,
             Phase = exercise.Phase.ToString(),
-            Tags = exercise.ExerciseTags.Select(t => t.Tag.Name).ToList()
+            Tags = exercise.ExerciseTags.Select(t => t.Tag.Name).ToList(),
+            FocusTags = exercise.ExerciseTags
+                .Where(et => et.Tag.Type == TagType.Focus)
+                .Select(et => et.Tag.Name)
+                .ToList()
         });
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<ActionResult<ExerciseDetailsDto>> Create(CreateExerciseRequestDto request)
     {
@@ -140,7 +190,7 @@ public class ExercisesController : ControllerBase
             return BadRequest(new { message = "Az egyik vagy több megadott TagId nem létezik." });
         }
 
-        var exercise = new Entities.Exercise
+        var exercise = new VolleyPlanner.API.Entities.Exercise
         {
             Title = request.Title,
             Description = request.Description,
@@ -157,7 +207,7 @@ public class ExercisesController : ControllerBase
         _context.Exercises.Add(exercise);
         await _context.SaveChangesAsync();
 
-        var exerciseTags = request.TagIds.Select(tagId => new Entities.ExerciseTag
+        var exerciseTags = request.TagIds.Select(tagId => new VolleyPlanner.API.Entities.ExerciseTag
         {
             ExerciseId = exercise.Id,
             TagId = tagId
@@ -183,7 +233,11 @@ public class ExercisesController : ControllerBase
             MinPlayers = createdExercise.MinPlayers,
             MaxPlayers = createdExercise.MaxPlayers,
             Phase = createdExercise.Phase.ToString(),
-            Tags = createdExercise.ExerciseTags.Select(et => et.Tag.Name).ToList()
+            Tags = createdExercise.ExerciseTags.Select(et => et.Tag.Name).ToList(),
+            FocusTags = createdExercise.ExerciseTags
+                .Where(et => et.Tag.Type == TagType.Focus)
+                .Select(et => et.Tag.Name)
+                .ToList()
         };
 
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);

@@ -68,4 +68,42 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
+
+    [HttpGet("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
+    {
+        var success = await _authService.ConfirmEmailAsync(token);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Érvénytelen vagy lejárt token." });
+        }
+
+        return Ok(new { message = "Az email cím sikeresen megerősítve." });
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequestDto request)
+    {
+        await _authService.ForgotPasswordAsync(request.Email);
+
+        return Ok(new
+        {
+            message = "Ha létezik ilyen email cím, elküldtük a visszaállítási linket."
+        });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequestDto request)
+    {
+        var success = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
+
+        if (!success)
+        {
+            return BadRequest(new { message = "Érvénytelen vagy lejárt token." });
+        }
+
+        return Ok(new { message = "A jelszó sikeresen módosítva." });
+    }
+
 }
