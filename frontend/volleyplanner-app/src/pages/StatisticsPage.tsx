@@ -37,10 +37,7 @@ function StatisticsPage() {
   }, [stats]);
 
   const topFocus = useMemo(() => {
-    if (!stats || stats.focusUsageStats.length === 0) {
-      return null;
-    }
-
+    if (!stats || stats.focusUsageStats.length === 0) return null;
     return stats.focusUsageStats[0];
   }, [stats]);
 
@@ -49,8 +46,8 @@ function StatisticsPage() {
       title="Statisztikák"
       subtitle="Kövesd nyomon az edzéseid mennyiségét és fókuszterületeit."
     >
-      <section className="card" style={{ marginBottom: "1.5rem" }}>
-        <div className="form-field" style={{ maxWidth: "280px" }}>
+      <section className="card statistics-filter-card">
+        <div className="form-field">
           <label htmlFor="stats-range">Időszak</label>
           <select
             id="stats-range"
@@ -70,83 +67,56 @@ function StatisticsPage() {
 
       {!loading && stats && (
         <>
-          <section
-            className="card-grid"
-            style={{
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              marginBottom: "1.5rem",
-            }}
-          >
-            <article className="card">
-              <h3 className="exercise-card-title">Heti edzések</h3>
-              <p className="exercise-meta">{stats.weeklyCount} db</p>
+          <section className="mobile-stat-summary-grid">
+            <article className="mobile-stat-card">
+              <span>Heti edzés</span>
+              <strong>{stats.weeklyCount}</strong>
             </article>
 
-            <article className="card">
-              <h3 className="exercise-card-title">Havi edzések</h3>
-              <p className="exercise-meta">{stats.monthlyCount} db</p>
+            <article className="mobile-stat-card">
+              <span>Havi edzés</span>
+              <strong>{stats.monthlyCount}</strong>
             </article>
 
-            <article className="card">
-              <h3 className="exercise-card-title">Összes esemény</h3>
-              <p className="exercise-meta">{stats.totalEvents} db</p>
+            <article className="mobile-stat-card">
+              <span>Összes idő</span>
+              <strong>{totalHours} óra</strong>
             </article>
 
-            <article className="card">
-              <h3 className="exercise-card-title">Összes idő</h3>
-              <p className="exercise-meta">{totalHours} óra</p>
-            </article>
-
-            <article className="card">
-              <h3 className="exercise-card-title">Legfőbb fókusz</h3>
-              <p className="exercise-meta">
-                {topFocus ? `${topFocus.focusName} (${topFocus.count})` : "Nincs adat"}
-              </p>
+            <article className="mobile-stat-card">
+              <span>Legfőbb fókusz</span>
+              <strong>{topFocus ? topFocus.focusName : "Nincs adat"}</strong>
             </article>
           </section>
 
           <section className="card" style={{ marginBottom: "1.5rem" }}>
             <h2 style={{ marginTop: 0 }}>Heti edzéseloszlás</h2>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-end",
-                gap: "1rem",
-                minHeight: "220px",
-                paddingTop: "1rem",
-              }}
-            >
+            <div className="weekly-chart">
               {stats.weeklyDailyStats.map((item) => {
-                const height = `${(item.count / maxDailyCount) * 160}px`;
+                const height = `${(item.count / maxDailyCount) * 150}px`;
 
                 return (
-                  <div
-                    key={item.dayLabel}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      flex: 1,
-                      gap: "0.5rem",
-                    }}
-                  >
-                    <span className="info-text">{item.count} edzés</span>
+                  <div key={item.dayLabel} className="weekly-chart-item">
+                    <span className="weekly-chart-count">
+                      {item.count} edz.
+                    </span>
 
                     <div
+                      className="weekly-chart-bar"
                       style={{
-                        width: "100%",
-                        maxWidth: "48px",
                         height,
-                        minHeight: item.count > 0 ? "12px" : "4px",
-                        borderRadius: "12px 12px 0 0",
-                        background:
-                          "linear-gradient(135deg, #6ee7ff 0%, #34c6f3 45%, #148fd0 100%)",
+                        minHeight: item.count > 0 ? "18px" : "5px",
                       }}
                     />
 
-                    <strong>{item.dayLabel}</strong>
-                    <span className="info-text">{item.durationMinutes} perc</span>
+                    <strong className="weekly-chart-day">
+                      {item.dayLabel}
+                    </strong>
+
+                    <span className="weekly-chart-minutes">
+                      {item.durationMinutes} p
+                    </span>
                   </div>
                 );
               })}
@@ -159,13 +129,14 @@ function StatisticsPage() {
             {stats.topPlans.length === 0 ? (
               <p className="info-text">Még nincs elég adat.</p>
             ) : (
-              <div className="card-grid">
-                {stats.topPlans.map((plan) => (
-                  <article key={plan.trainingPlanId} className="card">
-                    <h3 className="exercise-card-title">{plan.title}</h3>
-                    <p className="exercise-meta">
-                      Felhasználás: {plan.count} alkalom
-                    </p>
+              <div className="stat-list">
+                {stats.topPlans.map((plan, index) => (
+                  <article key={plan.trainingPlanId} className="stat-list-item">
+                    <div className="stat-rank">{index + 1}</div>
+                    <div>
+                      <h3>{plan.title}</h3>
+                      <p>Felhasználás: {plan.count} alkalom</p>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -178,13 +149,14 @@ function StatisticsPage() {
             {stats.focusUsageStats.length === 0 ? (
               <p className="info-text">Még nincs elég fókuszadat.</p>
             ) : (
-              <div className="card-grid">
-                {stats.focusUsageStats.map((focus) => (
-                  <article key={focus.focusName} className="card">
-                    <h3 className="exercise-card-title">{focus.focusName}</h3>
-                    <p className="exercise-meta">
-                      Előfordulás: {focus.count}
-                    </p>
+              <div className="stat-list">
+                {stats.focusUsageStats.map((focus, index) => (
+                  <article key={focus.focusName} className="stat-list-item">
+                    <div className="stat-rank">{index + 1}</div>
+                    <div>
+                      <h3>{focus.focusName}</h3>
+                      <p>Előfordulás: {focus.count}</p>
+                    </div>
                   </article>
                 ))}
               </div>

@@ -9,6 +9,15 @@ import type {
   GeneratedTrainingPlanResponse,
 } from "../types/generation";
 
+const focusOptions = [
+  "Nyitás",
+  "Nyitásfogadás",
+  "Feladás",
+  "Támadás",
+  "Blokk/Védekezés",
+  "Állóképesség",
+];
+
 function GenerateTrainingPlanPage() {
   const [formData, setFormData] = useState<GenerateTrainingPlanRequest>({
     sportTypes: ["BeachVolleyball"],
@@ -22,7 +31,7 @@ function GenerateTrainingPlanPage() {
   const [generatedPlan, setGeneratedPlan] =
     useState<GeneratedTrainingPlanResponse | null>(null);
 
-  const [planTitle, setPlanTitle] = useState("");
+  const [customPlanTitle, setCustomPlanTitle] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,7 +40,9 @@ function GenerateTrainingPlanPage() {
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
 
     if (name === "durationMin" || name === "playerCount") {
@@ -72,13 +83,31 @@ function GenerateTrainingPlanPage() {
     setSaveMessage("");
     setSaveError("");
     setGeneratedPlan(null);
-    setPlanTitle("");
+    setCustomPlanTitle("");
     setLoading(true);
+
+    if (formData.sportTypes.length === 0) {
+      setError("Legalább egy sportág kiválasztása kötelező.");
+      setLoading(false);
+      return;
+    }
+
+    if (formData.difficulties.length === 0) {
+      setError("Legalább egy nehézség kiválasztása kötelező.");
+      setLoading(false);
+      return;
+    }
+
+    if (formData.intensities.length === 0) {
+      setError("Legalább egy intenzitás kiválasztása kötelező.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const result = await generationService.generate(formData);
       setGeneratedPlan(result);
-      setPlanTitle(`${result.sportType} terv - ${result.primaryFocus}`);
+      setCustomPlanTitle(`${result.sportType} terv - ${result.primaryFocus}`);
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.message || "Sikertelen generálás.");
@@ -93,21 +122,21 @@ function GenerateTrainingPlanPage() {
   const handleSavePlan = async () => {
     if (!generatedPlan) return;
 
-    const trimmedTitle = planTitle.trim();
-
-    if (!trimmedTitle) {
-      setSaveError("Adj meg nevet a mentett edzéstervhez.");
-      setSaveMessage("");
-      return;
-    }
-
     setSaveMessage("");
     setSaveError("");
     setSaving(true);
 
+    const finalTitle = customPlanTitle.trim();
+
+    if (!finalTitle) {
+      setSaveError("Adj meg egy nevet az edzéstervnek.");
+      setSaving(false);
+      return;
+    }
+
     try {
       const payload = {
-        title: trimmedTitle,
+        title: finalTitle,
         sportType: generatedPlan.sportType,
         planType: "Single",
         targetDuration: generatedPlan.targetDuration,
@@ -124,15 +153,8 @@ function GenerateTrainingPlanPage() {
 
       await trainingPlanService.create(payload);
       setSaveMessage("Az edzésterv sikeresen elmentve.");
-    } catch (err: unknown) {
-      if (err instanceof AxiosError) {
-        setSaveError(
-          err.response?.data?.message ||
-            "Nem sikerült elmenteni az edzéstervet."
-        );
-      } else {
-        setSaveError("Nem sikerült elmenteni az edzéstervet.");
-      }
+    } catch {
+      setSaveError("Nem sikerült elmenteni az edzéstervet.");
     } finally {
       setSaving(false);
     }
@@ -253,23 +275,18 @@ function GenerateTrainingPlanPage() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="primaryFocus">Fő fókusz</label>
+              <label htmlFor="primaryFocus">Fő fókuszterület</label>
               <select
                 id="primaryFocus"
                 name="primaryFocus"
                 value={formData.primaryFocus}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    primaryFocus: e.target.value,
-                  }))
-                }
+                onChange={handleInputChange}
               >
-                <option value="Nyitás">Nyitás</option>
-                <option value="Nyitásfogadás">Nyitásfogadás</option>
-                <option value="Feladás">Feladás</option>
-                <option value="Támadás">Támadás</option>
-                <option value="Blokk/Védekezés">Blokk/Védekezés</option>
+                {focusOptions.map((focus) => (
+                  <option key={focus} value={focus}>
+                    {focus}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -315,14 +332,14 @@ function GenerateTrainingPlanPage() {
             </div>
 
             <div className="card" style={{ padding: "1rem" }}>
-              <strong>Nehézségek</strong>
+              <strong>Nehézség</strong>
               <p className="info-text" style={{ marginBottom: 0 }}>
                 {generatedPlan.difficulty}
               </p>
             </div>
 
             <div className="card" style={{ padding: "1rem" }}>
-              <strong>Intenzitások</strong>
+              <strong>Intenzitás</strong>
               <p className="info-text" style={{ marginBottom: 0 }}>
                 {generatedPlan.intensity}
               </p>
@@ -332,17 +349,6 @@ function GenerateTrainingPlanPage() {
           <div style={{ marginBottom: "1rem" }}>
             <strong>Fő fókusz:</strong>{" "}
             <span className="info-text">{generatedPlan.primaryFocus}</span>
-          </div>
-
-          <div className="form-field" style={{ marginBottom: "1.5rem" }}>
-            <label htmlFor="planTitle">Mentett edzésterv neve</label>
-            <input
-              id="planTitle"
-              type="text"
-              value={planTitle}
-              onChange={(e) => setPlanTitle(e.target.value)}
-              placeholder="Adj nevet az edzéstervnek"
-            />
           </div>
 
           <h3>Edzéselemek</h3>
@@ -364,6 +370,17 @@ function GenerateTrainingPlanPage() {
                 </p>
               </article>
             ))}
+          </div>
+
+          <div className="form-field" style={{ marginTop: "1.5rem" }}>
+            <label htmlFor="customPlanTitle">Mentett terv neve</label>
+            <input
+              id="customPlanTitle"
+              type="text"
+              value={customPlanTitle}
+              onChange={(e) => setCustomPlanTitle(e.target.value)}
+              placeholder="Például: Hétfői állóképességi edzés"
+            />
           </div>
 
           <div className="toolbar" style={{ marginTop: "1.5rem" }}>

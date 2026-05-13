@@ -17,7 +17,8 @@ public class GenerationService : IGenerationService
         "Nyitásfogadás",
         "Feladás",
         "Támadás",
-        "Blokk/Védekezés"
+        "Blokk/Védekezés",
+        "Állóképesség"
     };
 
     public GenerationService(AppDbContext context)
@@ -131,6 +132,7 @@ public class GenerationService : IGenerationService
         int mainTarget = request.DurationMin - warmupTarget;
 
         var selectedWarmup = warmups.First();
+
         selectedItems.Add((
             selectedWarmup,
             "Warmup",

@@ -4,11 +4,12 @@ import { AxiosError } from "axios";
 import AppLayout from "../components/layout/AppLayout";
 import { plannerService } from "../services/plannerService";
 import { trainingPlanService } from "../services/trainingPlanService";
-import type {
-  CalendarEvent,
-  CreateCalendarEventRequest,
-} from "../types/planner";
+import type { CalendarEvent } from "../types/planner";
 import type { TrainingPlanListItem } from "../types/trainingPlan";
+
+const CALENDAR_START_HOUR = 6;
+const CALENDAR_END_HOUR = 22;
+const SLOT_STEP_MINUTES = 30;
 
 function WeeklyPlannerPage() {
   const [searchParams] = useSearchParams();
@@ -31,29 +32,93 @@ function WeeklyPlannerPage() {
     return monday;
   });
 
-  const [formData, setFormData] = useState<CreateCalendarEventRequest>({
+  const todayDate = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const [formData, setFormData] = useState({
     trainingPlanId: 0,
     title: "",
+    date: todayDate,
     startTime: "",
     endTime: "",
   });
 
+  const selectedPlan = useMemo(
+    () => plans.find((p) => p.id === formData.trainingPlanId),
+    [plans, formData.trainingPlanId]
+  );
+
+  const getTotalMinutes = (time: string) => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
   const calculateEndTime = (startTime: string, durationMinutes: number) => {
-    if (!startTime || durationMinutes <= 0) {
-      return "";
+    if (!startTime || durationMinutes <= 0) return "";
+
+    const startTotalMinutes = getTotalMinutes(startTime);
+    const endTotalMinutes = startTotalMinutes + durationMinutes;
+
+    if (endTotalMinutes > CALENDAR_END_HOUR * 60) return "";
+
+    const endHours = String(Math.floor(endTotalMinutes / 60)).padStart(2, "0");
+    const endMinutes = String(endTotalMinutes % 60).padStart(2, "0");
+
+    return `${endHours}:${endMinutes}`;
+  };
+
+  const combineDateAndTime = (date: string, time: string) => {
+    return `${date}T${time}`;
+  };
+
+  const timeOptions = useMemo(() => {
+    const options: string[] = [];
+
+    for (
+      let minutes = CALENDAR_START_HOUR * 60;
+      minutes <= CALENDAR_END_HOUR * 60;
+      minutes += SLOT_STEP_MINUTES
+    ) {
+      const hours = String(Math.floor(minutes / 60)).padStart(2, "0");
+      const mins = String(minutes % 60).padStart(2, "0");
+      options.push(`${hours}:${mins}`);
     }
 
-    const start = new Date(startTime);
-    const end = new Date(start.getTime() + durationMinutes * 60000);
+    return options;
+  }, []);
 
-    const year = end.getFullYear();
-    const month = String(end.getMonth() + 1).padStart(2, "0");
-    const day = String(end.getDate()).padStart(2, "0");
-    const hours = String(end.getHours()).padStart(2, "0");
-    const minutes = String(end.getMinutes()).padStart(2, "0");
+  const startTimeOptions = useMemo(() => {
+    if (!selectedPlan) {
+      return timeOptions.filter((time) => time < "22:00");
+    }
 
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
+    return timeOptions.filter((time) => {
+      if (time >= "22:00") return false;
+      return calculateEndTime(time, selectedPlan.targetDuration) !== "";
+    });
+  }, [timeOptions, selectedPlan]);
+
+  const endTimeOptions = useMemo(() => {
+    if (!formData.startTime) {
+      return timeOptions.filter((time) => time > "06:00");
+    }
+
+    if (selectedPlan) {
+      const autoEnd = calculateEndTime(
+        formData.startTime,
+        selectedPlan.targetDuration
+      );
+
+      return autoEnd ? [autoEnd] : [];
+    }
+
+    return timeOptions.filter((time) => time > formData.startTime);
+  }, [formData.startTime, timeOptions, selectedPlan]);
 
   const loadData = async () => {
     setLoading(true);
@@ -66,34 +131,34 @@ function WeeklyPlannerPage() {
       setPlans(plansData);
 
       if (plansData.length > 0) {
-        let selectedPlan: TrainingPlanListItem | undefined;
+        let nextSelectedPlan: TrainingPlanListItem | undefined;
 
         if (!Number.isNaN(requestedPlanId) && requestedPlanId > 0) {
-          selectedPlan = plansData.find((p) => p.id === requestedPlanId);
+          nextSelectedPlan = plansData.find((p) => p.id === requestedPlanId);
         }
 
-        if (!selectedPlan) {
-          selectedPlan =
+        if (!nextSelectedPlan) {
+          nextSelectedPlan =
             plansData.find((p) => p.id === formData.trainingPlanId) ??
             plansData[0];
         }
 
-        if (selectedPlan) {
-          setFormData((prev) => ({
-            ...prev,
-            trainingPlanId: selectedPlan.id,
-            title: selectedPlan.title,
-            endTime:
-              prev.startTime && selectedPlan
-                ? calculateEndTime(prev.startTime, selectedPlan.targetDuration)
-                : prev.endTime,
-          }));
-        }
+        setFormData((prev) => ({
+          ...prev,
+          trainingPlanId: nextSelectedPlan!.id,
+          title: nextSelectedPlan!.title,
+          endTime:
+            prev.startTime && nextSelectedPlan
+              ? calculateEndTime(prev.startTime, nextSelectedPlan.targetDuration)
+              : prev.endTime,
+        }));
       } else {
         setFormData((prev) => ({
           ...prev,
           trainingPlanId: 0,
           title: "",
+          startTime: "",
+          endTime: "",
         }));
       }
     } catch {
@@ -120,6 +185,32 @@ function WeeklyPlannerPage() {
     void loadData();
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!selectedPlan || !formData.startTime) return;
+
+    const newEndTime = calculateEndTime(
+      formData.startTime,
+      selectedPlan.targetDuration
+    );
+
+    if (!newEndTime) {
+      setFormData((prev) => ({
+        ...prev,
+        startTime: "",
+        endTime: "",
+      }));
+      setSaveError(
+        "Ehhez az edzéstervhez ez a kezdési idő már nem fér bele 22:00 óráig."
+      );
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      endTime: newEndTime,
+    }));
+  }, [selectedPlan, formData.startTime]);
+
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(currentWeekStart);
@@ -131,19 +222,60 @@ function WeeklyPlannerPage() {
   const weekStart = weekDays[0];
   const weekEnd = weekDays[6];
 
-  const hours = useMemo(() => Array.from({ length: 13 }, (_, i) => 8 + i), []);
+  const hours = useMemo(
+    () =>
+      Array.from(
+        { length: CALENDAR_END_HOUR - CALENDAR_START_HOUR + 1 },
+        (_, i) => CALENDAR_START_HOUR + i
+      ),
+    []
+  );
 
   const handlePlanChange = (planId: number) => {
-    const selectedPlan = plans.find((p) => p.id === planId);
+    const plan = plans.find((p) => p.id === planId);
+    setSaveError("");
+
+    setFormData((prev) => {
+      const nextEndTime =
+        prev.startTime && plan
+          ? calculateEndTime(prev.startTime, plan.targetDuration)
+          : prev.endTime;
+
+      return {
+        ...prev,
+        trainingPlanId: planId,
+        title: plan?.title || "",
+        startTime: prev.startTime && plan && !nextEndTime ? "" : prev.startTime,
+        endTime: nextEndTime,
+      };
+    });
+  };
+
+  const handleStartTimeChange = (value: string) => {
+    setSaveError("");
+
+    if (!selectedPlan) {
+      setFormData((prev) => ({
+        ...prev,
+        startTime: value,
+        endTime: "",
+      }));
+      return;
+    }
+
+    const newEndTime = calculateEndTime(value, selectedPlan.targetDuration);
+
+    if (!newEndTime) {
+      setSaveError(
+        "Ez a kezdési idő már nem fér bele a terv időtartamával 22:00 óráig."
+      );
+      return;
+    }
 
     setFormData((prev) => ({
       ...prev,
-      trainingPlanId: planId,
-      title: selectedPlan?.title || "",
-      endTime:
-        prev.startTime && selectedPlan
-          ? calculateEndTime(prev.startTime, selectedPlan.targetDuration)
-          : prev.endTime,
+      startTime: value,
+      endTime: newEndTime,
     }));
   };
 
@@ -157,29 +289,61 @@ function WeeklyPlannerPage() {
       return;
     }
 
-    if (!formData.startTime || !formData.endTime) {
-      setSaveError("Add meg a kezdési és befejezési időpontot.");
+    if (!formData.date || !formData.startTime || !formData.endTime) {
+      setSaveError("Add meg a dátumot, a kezdési és a befejezési időpontot.");
       return;
     }
 
-    if (new Date(formData.endTime) <= new Date(formData.startTime)) {
-      setSaveError(
-        "A befejezési idő nem lehet korábbi vagy azonos a kezdési idővel."
-      );
+    const startMinutes = getTotalMinutes(formData.startTime);
+    const endMinutes = getTotalMinutes(formData.endTime);
+
+    if (
+      startMinutes < CALENDAR_START_HOUR * 60 ||
+      startMinutes >= CALENDAR_END_HOUR * 60
+    ) {
+      setSaveError("A kezdési idő csak 06:00 és 21:30 között lehet.");
       return;
+    }
+
+    if (
+      endMinutes <= CALENDAR_START_HOUR * 60 ||
+      endMinutes > CALENDAR_END_HOUR * 60
+    ) {
+      setSaveError("A befejezési idő csak 06:30 és 22:00 között lehet.");
+      return;
+    }
+
+    if (selectedPlan) {
+      const expectedEnd = calculateEndTime(
+        formData.startTime,
+        selectedPlan.targetDuration
+      );
+
+      if (!expectedEnd || expectedEnd !== formData.endTime) {
+        setSaveError(
+          "A befejezési időnek illeszkednie kell a kiválasztott terv időtartamához."
+        );
+        return;
+      }
     }
 
     try {
-      await plannerService.create(formData);
+      await plannerService.create({
+        trainingPlanId: formData.trainingPlanId,
+        title: formData.title,
+        startTime: combineDateAndTime(formData.date, formData.startTime),
+        endTime: combineDateAndTime(formData.date, formData.endTime),
+      });
+
       setSaveMessage("Az edzés sikeresen hozzáadva a heti tervhez.");
 
       await loadData();
 
-      const selectedPlan = plans.find((p) => p.id === formData.trainingPlanId);
+      const plan = plans.find((p) => p.id === formData.trainingPlanId);
 
       setFormData((prev) => ({
         ...prev,
-        title: selectedPlan?.title || "",
+        title: plan?.title || "",
         startTime: "",
         endTime: "",
       }));
@@ -197,9 +361,7 @@ function WeeklyPlannerPage() {
       "Biztosan törölni szeretnéd ezt az eseményt?"
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setSaveMessage("");
     setSaveError("");
@@ -257,6 +419,13 @@ function WeeklyPlannerPage() {
       );
   };
 
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString("hu-HU", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   return (
     <AppLayout
       title="Heti tervező"
@@ -267,7 +436,8 @@ function WeeklyPlannerPage() {
           <div>
             <h2 style={{ margin: 0 }}>Új edzés hozzáadása</h2>
             <p className="page-subtitle">
-              Válassz egy mentett tervet, majd add meg az időpontját.
+              Válassz egy mentett tervet, majd add meg a dátumát és az
+              időpontját.
             </p>
           </div>
         </div>
@@ -292,13 +462,6 @@ function WeeklyPlannerPage() {
                   ))
                 )}
               </select>
-
-              {plans.length === 0 && (
-                <p className="info-text">
-                  Még nincs mentett edzésterved. Előbb generálj és ments egy
-                  tervet.
-                </p>
-              )}
             </div>
 
             <div className="form-field">
@@ -314,45 +477,53 @@ function WeeklyPlannerPage() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="startTime">Kezdés</label>
+              <label htmlFor="date">Dátum</label>
               <input
-                id="startTime"
-                type="datetime-local"
-                value={formData.startTime}
-                onChange={(e) => {
-                  const newStartTime = e.target.value;
-                  const selectedPlan = plans.find(
-                    (p) => p.id === formData.trainingPlanId
-                  );
-
-                  setFormData((prev) => ({
-                    ...prev,
-                    startTime: newStartTime,
-                    endTime:
-                      selectedPlan && newStartTime
-                        ? calculateEndTime(
-                            newStartTime,
-                            selectedPlan.targetDuration
-                          )
-                        : prev.endTime,
-                  }));
-                }}
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, date: e.target.value }))
+                }
               />
             </div>
 
             <div className="form-field">
+              <label htmlFor="startTime">Kezdés</label>
+              <select
+                id="startTime"
+                value={formData.startTime}
+                onChange={(e) => handleStartTimeChange(e.target.value)}
+              >
+                <option value="">Válassz kezdési időt</option>
+                {startTimeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-field">
               <label htmlFor="endTime">Befejezés</label>
-              <input
+              <select
                 id="endTime"
-                type="datetime-local"
                 value={formData.endTime}
+                disabled={!!selectedPlan}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
                     endTime: e.target.value,
                   }))
                 }
-              />
+              >
+                <option value="">Automatikus befejezés</option>
+                {endTimeOptions.map((time) => (
+                  <option key={time} value={time}>
+                    {time}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -368,6 +539,7 @@ function WeeklyPlannerPage() {
             {saveMessage}
           </p>
         )}
+
         {saveError && (
           <p className="error-text" style={{ marginTop: "1rem" }}>
             {saveError}
@@ -376,14 +548,7 @@ function WeeklyPlannerPage() {
       </section>
 
       <section className="card">
-        <div
-          className="toolbar"
-          style={{
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "1rem",
-          }}
-        >
+        <div className="planner-header">
           <div>
             <h2 style={{ margin: 0 }}>Heti nézet</h2>
             <p className="page-subtitle">
@@ -392,7 +557,7 @@ function WeeklyPlannerPage() {
             </p>
           </div>
 
-          <div className="toolbar">
+          <div className="planner-week-buttons">
             <button
               type="button"
               className="secondary-button"
@@ -421,103 +586,167 @@ function WeeklyPlannerPage() {
         {error && <p className="error-text">{error}</p>}
 
         {!loading && (
-          <div className="week-calendar-wrapper">
-            <div className="week-calendar">
-              <div className="time-column">
-                <div className="calendar-header-cell"></div>
-                {hours.map((hour) => (
-                  <div key={hour} className="time-cell">
-                    {hour}:00
+          <>
+            <div className="desktop-week-calendar">
+              <div className="week-calendar-wrapper">
+                <div className="week-calendar">
+                  <div className="time-column">
+                    <div className="calendar-header-cell"></div>
+                    {hours.map((hour) => (
+                      <div key={hour} className="time-cell">
+                        {hour}:00
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
+                  {weekDays.map((day) => {
+                    const dayEvents = getEventsForDay(day);
+
+                    return (
+                      <div key={day.toISOString()} className="day-column">
+                        <div className="calendar-header-cell day-header-cell">
+                          <strong>
+                            {day.toLocaleDateString("hu-HU", {
+                              weekday: "short",
+                            })}
+                          </strong>
+                          <div className="info-text">
+                            {day.toLocaleDateString("hu-HU")}
+                          </div>
+                        </div>
+
+                        <div className="day-slots" style={{ height: "960px" }}>
+                          {hours.map((hour) => (
+                            <div key={hour} className="hour-slot" />
+                          ))}
+
+                          {dayEvents.map((event) => {
+                            const start = new Date(event.startTime);
+                            const end = new Date(event.endTime);
+
+                            const startMinutes =
+                              (start.getHours() - CALENDAR_START_HOUR) * 60 +
+                              start.getMinutes();
+
+                            const durationMinutes =
+                              end.getHours() * 60 +
+                              end.getMinutes() -
+                              (start.getHours() * 60 + start.getMinutes());
+
+                            const top = startMinutes;
+                            const height = Math.max(durationMinutes, 45);
+
+                            return (
+                              <div
+                                key={event.id}
+                                className="calendar-event-block"
+                                style={{
+                                  top: `${top}px`,
+                                  height: `${height}px`,
+                                }}
+                              >
+                                <button
+                                  type="button"
+                                  className="calendar-event-delete"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleDeleteEvent(event.id);
+                                  }}
+                                  title="Esemény törlése"
+                                >
+                                  ×
+                                </button>
+
+                                <Link
+                                  to={`/plans/${event.trainingPlanId}`}
+                                  className="calendar-event-title"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {event.title}
+                                </Link>
+
+                                <div className="calendar-event-time">
+                                  {formatTime(start)} - {formatTime(end)}
+                                </div>
+
+                                <div className="calendar-event-meta">
+                                  {event.sportType}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="mobile-week-list">
               {weekDays.map((day) => {
                 const dayEvents = getEventsForDay(day);
 
                 return (
-                  <div key={day.toISOString()} className="day-column">
-                    <div className="calendar-header-cell day-header-cell">
-                      <strong>
-                        {day.toLocaleDateString("hu-HU", { weekday: "short" })}
-                      </strong>
-                      <div className="info-text">
-                        {day.toLocaleDateString("hu-HU")}
+                  <section key={day.toISOString()} className="mobile-day-card">
+                    <div className="mobile-day-header">
+                      <div>
+                        <strong>
+                          {day.toLocaleDateString("hu-HU", {
+                            weekday: "long",
+                          })}
+                        </strong>
+                        <span>{day.toLocaleDateString("hu-HU")}</span>
                       </div>
                     </div>
 
-                    <div className="day-slots">
-                      {hours.map((hour) => (
-                        <div key={hour} className="hour-slot" />
-                      ))}
+                    {dayEvents.length === 0 ? (
+                      <p className="info-text">Nincs edzés erre a napra.</p>
+                    ) : (
+                      <div className="mobile-event-list">
+                        {dayEvents.map((event) => {
+                          const start = new Date(event.startTime);
+                          const end = new Date(event.endTime);
 
-                      {dayEvents.map((event) => {
-                        const start = new Date(event.startTime);
-                        const end = new Date(event.endTime);
-
-                        const startMinutes =
-                          (start.getHours() - 8) * 60 + start.getMinutes();
-                        const durationMinutes =
-                          end.getHours() * 60 +
-                          end.getMinutes() -
-                          (start.getHours() * 60 + start.getMinutes());
-
-                        const top = startMinutes;
-                        const height = Math.max(durationMinutes, 45);
-
-                        return (
-                          <div
-                            key={event.id}
-                            className="calendar-event-block"
-                            style={{
-                              top: `${top}px`,
-                              height: `${height}px`,
-                            }}
-                          >
-                            <button
-                              type="button"
-                              className="calendar-event-delete"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleDeleteEvent(event.id);
-                              }}
-                              title="Esemény törlése"
+                          return (
+                            <article
+                              key={event.id}
+                              className="mobile-event-card"
                             >
-                              ×
-                            </button>
+                              <div>
+                                <Link
+                                  to={`/plans/${event.trainingPlanId}`}
+                                  className="mobile-event-title"
+                                >
+                                  {event.title}
+                                </Link>
 
-                            <Link
-                              to={`/plans/${event.trainingPlanId}`}
-                              className="calendar-event-title"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {event.title}
-                            </Link>
+                                <p className="mobile-event-time">
+                                  {formatTime(start)} - {formatTime(end)}
+                                </p>
 
-                            <div className="calendar-event-time">
-                              {start.toLocaleTimeString("hu-HU", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                              {" - "}
-                              {end.toLocaleTimeString("hu-HU", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </div>
+                                <p className="mobile-event-meta">
+                                  {event.sportType}
+                                </p>
+                              </div>
 
-                            <div className="calendar-event-meta">
-                              {event.sportType}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                              <button
+                                type="button"
+                                className="danger-button"
+                                onClick={() => void handleDeleteEvent(event.id)}
+                              >
+                                Törlés
+                              </button>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </section>
                 );
               })}
             </div>
-          </div>
+          </>
         )}
       </section>
     </AppLayout>

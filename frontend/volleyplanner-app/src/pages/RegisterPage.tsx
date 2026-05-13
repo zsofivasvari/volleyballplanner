@@ -17,11 +17,13 @@ function RegisterPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
@@ -32,8 +34,14 @@ function RegisterPage() {
 
     try {
       await authService.register(formData);
-      setSuccessMessage("Sikeres regisztráció! Átirányítás bejelentkezéshez...");
-      setTimeout(() => navigate("/"), 1200);
+
+      setSuccessMessage(
+        "Sikeres regisztráció. Ellenőrizd az email fiókodat a megerősítő linkért."
+      );
+
+      setTimeout(() => {
+        navigate("/");
+      }, 2500);
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.message || "Sikertelen regisztráció.");
@@ -46,23 +54,26 @@ function RegisterPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-brand">
-          <h1>VolleyMind</h1>
-          <p>Hozd létre a fiókodat, és kezdd el az edzéstervezést</p>
-        </div>
+    <main
+      className="auth-page auth-page-image"
+      style={{ backgroundImage: "url('/images/login.png')" }}
+    >
+      <section className="auth-card">
+        <h1>VolleyMind</h1>
+        <p className="auth-subtitle">
+          Hozz létre fiókot az edzéstervező és fejlődéskövető rendszerhez.
+        </p>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <div className="auth-field">
-            <label htmlFor="name">Felhasználónév</label>
+            <label htmlFor="name">Név</label>
             <input
               id="name"
-              type="text"
               name="name"
-              placeholder="Add meg a neved"
+              type="text"
+              placeholder="Teljes név"
               value={formData.name}
-              onChange={handleChange}
+              onChange={handleInputChange}
               required
             />
           </div>
@@ -71,11 +82,11 @@ function RegisterPage() {
             <label htmlFor="email">Email cím</label>
             <input
               id="email"
-              type="email"
               name="email"
+              type="email"
               placeholder="pelda@email.com"
               value={formData.email}
-              onChange={handleChange}
+              onChange={handleInputChange}
               required
             />
           </div>
@@ -84,28 +95,28 @@ function RegisterPage() {
             <label htmlFor="password">Jelszó</label>
             <input
               id="password"
-              type="password"
               name="password"
-              placeholder="Adj meg egy biztonságos jelszót"
+              type="password"
+              placeholder="••••••••"
               value={formData.password}
-              onChange={handleChange}
+              onChange={handleInputChange}
               required
             />
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
-          {successMessage && <div className="auth-success">{successMessage}</div>}
+          {error && <p className="auth-error">{error}</p>}
+          {successMessage && <p className="auth-success">{successMessage}</p>}
 
           <button className="auth-button" type="submit" disabled={loading}>
             {loading ? "Regisztráció..." : "Regisztráció"}
           </button>
         </form>
 
-        <div className="auth-footer">
+        <p className="auth-bottom-text">
           Van már fiókod? <Link to="/">Bejelentkezés</Link>
-        </div>
-      </div>
-    </div>
+        </p>
+      </section>
+    </main>
   );
 }
 

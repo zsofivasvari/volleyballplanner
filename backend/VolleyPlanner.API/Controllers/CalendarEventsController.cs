@@ -14,6 +14,8 @@ namespace VolleyPlanner.API.Controllers;
 public class CalendarEventsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private const int CalendarStartHour = 6;
+    private const int CalendarEndHour = 22;
 
     public CalendarEventsController(AppDbContext context)
     {
@@ -71,37 +73,36 @@ public class CalendarEventsController : ControllerBase
             return BadRequest(new { message = "A befejezési időnek későbbinek kell lennie, mint a kezdési idő." });
         }
 
-        Console.WriteLine(
-            $"[CalendarEvents] Új esemény kérés | UserId={userId} | Start={request.StartTime:yyyy-MM-dd HH:mm:ss} | End={request.EndTime:yyyy-MM-dd HH:mm:ss}");
+        var startTimeOfDay = request.StartTime.TimeOfDay;
+        var endTimeOfDay = request.EndTime.TimeOfDay;
 
-        var existingEvents = await _context.CalendarEvents
-            .Where(e => e.UserId == userId)
-            .OrderBy(e => e.StartTime)
-            .ToListAsync();
-
-        foreach (var existing in existingEvents)
+        if (startTimeOfDay < TimeSpan.FromHours(CalendarStartHour) ||
+            startTimeOfDay >= TimeSpan.FromHours(CalendarEndHour))
         {
-            var overlaps =
-                existing.StartTime < request.EndTime &&
-                existing.EndTime > request.StartTime;
-
-            Console.WriteLine(
-                $"[CalendarEvents] Létező esemény | Id={existing.Id} | Start={existing.StartTime:yyyy-MM-dd HH:mm:ss} | End={existing.EndTime:yyyy-MM-dd HH:mm:ss} | Overlaps={overlaps}");
+            return BadRequest(new { message = "A kezdési idő csak 06:00 és 21:30 között lehet." });
         }
 
-        var conflictingEvent = existingEvents.FirstOrDefault(e =>
+        if (endTimeOfDay <= TimeSpan.FromHours(CalendarStartHour) ||
+            endTimeOfDay > TimeSpan.FromHours(CalendarEndHour))
+        {
+            return BadRequest(new { message = "A befejezési idő csak 06:30 és 22:00 között lehet." });
+        }
+
+        var actualDurationMinutes = (int)(request.EndTime - request.StartTime).TotalMinutes;
+
+        if (actualDurationMinutes != trainingPlan.TargetDuration)
+        {
+            return BadRequest(new { message = "Az esemény időtartamának meg kell egyeznie a kiválasztott edzésterv időtartamával." });
+        }
+
+        var hasConflict = await _context.CalendarEvents.AnyAsync(e =>
+            e.UserId == userId &&
             e.StartTime < request.EndTime &&
             e.EndTime > request.StartTime);
 
-        if (conflictingEvent != null)
+        if (hasConflict)
         {
-            Console.WriteLine(
-                $"[CalendarEvents] ÜTKÖZÉS | ExistingId={conflictingEvent.Id} | ExistingStart={conflictingEvent.StartTime:yyyy-MM-dd HH:mm:ss} | ExistingEnd={conflictingEvent.EndTime:yyyy-MM-dd HH:mm:ss}");
-
-            return BadRequest(new
-            {
-                message = "Ebben az időpontban már van egy másik eseményed."
-            });
+            return BadRequest(new { message = "Ebben az időpontban már van egy másik eseményed." });
         }
 
         var calendarEvent = new CalendarEvent
@@ -118,9 +119,6 @@ public class CalendarEventsController : ControllerBase
 
         _context.CalendarEvents.Add(calendarEvent);
         await _context.SaveChangesAsync();
-
-        Console.WriteLine(
-            $"[CalendarEvents] Sikeres létrehozás | Id={calendarEvent.Id} | Start={calendarEvent.StartTime:yyyy-MM-dd HH:mm:ss} | End={calendarEvent.EndTime:yyyy-MM-dd HH:mm:ss}");
 
         var result = new CalendarEventDto
         {
@@ -156,9 +154,6 @@ public class CalendarEventsController : ControllerBase
 
         _context.CalendarEvents.Remove(calendarEvent);
         await _context.SaveChangesAsync();
-
-        Console.WriteLine(
-            $"[CalendarEvents] Törölve | Id={calendarEvent.Id} | Start={calendarEvent.StartTime:yyyy-MM-dd HH:mm:ss} | End={calendarEvent.EndTime:yyyy-MM-dd HH:mm:ss}");
 
         return NoContent();
     }

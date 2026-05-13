@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import "../../styles/app.css";
 
 interface AppLayoutProps {
@@ -19,29 +19,31 @@ function AppLayout({ title, subtitle, children }: AppLayoutProps) {
   return (
     <div className="app-shell">
       <nav className="app-navbar">
-        <Link to="/exercises" className="app-brand">
-          VolleyMind
-        </Link>
+        <div className="app-navbar-inner">
+          <NavLink to="/exercises" className="app-brand">
+            VolleyMind
+          </NavLink>
 
-        <div className="app-nav-links">
-          <Link to="/exercises" className="app-nav-link">
-            Gyakorlatok
-          </Link>
-          <Link to="/generate" className="app-nav-link">
-            Generálás
-          </Link>
-          <Link to="/plans" className="app-nav-link">
-            Mentett tervek
-          </Link>
-          <Link to="/planner" className="app-nav-link">
-            Heti tervező
-          </Link>
-          <Link to="/statistics" className="app-nav-link">
-            Statisztikák
-          </Link>
-          <button className="danger-button" onClick={handleLogout}>
-            Kijelentkezés
-          </button>
+          <div className="app-nav-links desktop-nav">
+            <NavLink to="/exercises" className="app-nav-link">
+              Gyakorlatok
+            </NavLink>
+            <NavLink to="/generate" className="app-nav-link">
+              Generálás
+            </NavLink>
+            <NavLink to="/plans" className="app-nav-link">
+              Tervek
+            </NavLink>
+            <NavLink to="/planner" className="app-nav-link">
+              Tervező
+            </NavLink>
+            <NavLink to="/statistics" className="app-nav-link">
+              Statisztikák
+            </NavLink>
+            <button className="danger-button nav-logout" onClick={handleLogout}>
+              Kilépés
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -55,6 +57,33 @@ function AppLayout({ title, subtitle, children }: AppLayoutProps) {
 
         {children}
       </main>
+
+      <nav className="mobile-bottom-nav">
+        <NavLink to="/exercises" className="mobile-bottom-link">
+          <span>🏐</span>
+          <small>Gyakorlatok</small>
+        </NavLink>
+
+        <NavLink to="/generate" className="mobile-bottom-link">
+          <span>✨</span>
+          <small>Generálás</small>
+        </NavLink>
+
+        <NavLink to="/planner" className="mobile-bottom-link">
+          <span>📅</span>
+          <small>Tervező</small>
+        </NavLink>
+
+        <NavLink to="/statistics" className="mobile-bottom-link">
+          <span>📊</span>
+          <small>Statisztikák</small>
+        </NavLink>
+
+        <button className="mobile-bottom-link mobile-logout" onClick={handleLogout}>
+          <span>↪</span>
+          <small>Kilépés</small>
+        </button>
+      </nav>
     </div>
   );
 }

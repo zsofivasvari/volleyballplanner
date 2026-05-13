@@ -15,11 +15,13 @@ function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
@@ -47,23 +49,26 @@ function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-brand">
-          <h1>VolleyMind</h1>
-          <p>Strandröplabda edzéstervező és fejlődéskövető rendszer</p>
-        </div>
+    <main
+      className="auth-page auth-page-image"
+      style={{ backgroundImage: "url('/images/login.png')" }}
+    >
+      <section className="auth-card">
+        <h1>VolleyMind</h1>
+        <p className="auth-subtitle">
+          Strandröplabda edzéstervező és fejlődéskövető rendszer
+        </p>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <div className="auth-field">
             <label htmlFor="email">Email cím</label>
             <input
               id="email"
-              type="email"
               name="email"
+              type="email"
               placeholder="pelda@email.com"
               value={formData.email}
-              onChange={handleChange}
+              onChange={handleInputChange}
               required
             />
           </div>
@@ -72,31 +77,31 @@ function LoginPage() {
             <label htmlFor="password">Jelszó</label>
             <input
               id="password"
-              type="password"
               name="password"
-              placeholder="Add meg a jelszavad"
+              type="password"
+              placeholder="••••••••"
               value={formData.password}
-              onChange={handleChange}
+              onChange={handleInputChange}
               required
             />
           </div>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && <p className="auth-error">{error}</p>}
 
           <button className="auth-button" type="submit" disabled={loading}>
             {loading ? "Bejelentkezés..." : "Bejelentkezés"}
           </button>
         </form>
 
-        <div style={{ textAlign: "right", marginTop: "0.75rem" }}>
-          <Link to="/forgot-password">Elfelejtetted a jelszavad?</Link>
-        </div>
+        <Link to="/forgot-password" className="auth-link">
+          Elfelejtetted a jelszavad?
+        </Link>
 
-        <div className="auth-footer">
+        <p className="auth-bottom-text">
           Nincs még fiókod? <Link to="/register">Regisztráció</Link>
-        </div>
-      </div>
-    </div>
+        </p>
+      </section>
+    </main>
   );
 }
 
