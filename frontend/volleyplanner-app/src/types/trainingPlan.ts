@@ -13,6 +13,7 @@ export interface CreateTrainingPlanRequest {
   targetIntensity: string;
   targetLevel: string;
   primaryFocus: string;
+  playerCount?: number | null;
   items: CreateTrainingPlanItem[];
 }
 
@@ -22,6 +23,7 @@ export interface TrainingPlanListItem {
   sportType: string;
   targetDuration: number;
   primaryFocus: string;
+  playerCount?: number | null;
   createdAt: string;
 }
 
@@ -42,6 +44,7 @@ export interface TrainingPlanDetails {
   targetIntensity: string;
   targetLevel: string;
   primaryFocus: string;
+  playerCount?: number | null;
   createdAt: string;
   items: TrainingPlanDetailsItem[];
 }

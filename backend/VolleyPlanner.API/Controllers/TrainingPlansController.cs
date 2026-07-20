@@ -24,16 +24,15 @@ public class TrainingPlansController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TrainingPlanListItemDto>>> GetAll()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim))
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
         {
             return Unauthorized();
         }
 
-        var userId = int.Parse(userIdClaim);
-
         var plans = await _context.TrainingPlans
-            .Where(tp => tp.UserId == userId)
+            .Where(tp => tp.UserId == userId.Value)
             .OrderByDescending(tp => tp.CreatedAt)
             .Select(tp => new TrainingPlanListItemDto
             {
@@ -42,6 +41,7 @@ public class TrainingPlansController : ControllerBase
                 SportType = tp.SportType.ToString(),
                 TargetDuration = tp.TargetDuration,
                 PrimaryFocus = tp.PrimaryFocus,
+                PlayerCount = tp.PlayerCount,
                 CreatedAt = tp.CreatedAt
             })
             .ToListAsync();
@@ -52,18 +52,17 @@ public class TrainingPlansController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<TrainingPlanDetailsDto>> GetById(int id)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim))
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
         {
             return Unauthorized();
         }
 
-        var userId = int.Parse(userIdClaim);
-
         var plan = await _context.TrainingPlans
             .Include(tp => tp.Items)
-                .ThenInclude(i => i.Exercise)
-            .FirstOrDefaultAsync(tp => tp.Id == id && tp.UserId == userId);
+                .ThenInclude(item => item.Exercise)
+            .FirstOrDefaultAsync(tp => tp.Id == id && tp.UserId == userId.Value);
 
         if (plan == null)
         {
@@ -80,16 +79,17 @@ public class TrainingPlansController : ControllerBase
             TargetIntensity = plan.TargetIntensity,
             TargetLevel = plan.TargetLevel,
             PrimaryFocus = plan.PrimaryFocus,
+            PlayerCount = plan.PlayerCount,
             CreatedAt = plan.CreatedAt,
             Items = plan.Items
-                .OrderBy(i => i.OrderIndex)
-                .Select(i => new TrainingPlanDetailsItemDto
+                .OrderBy(item => item.OrderIndex)
+                .Select(item => new TrainingPlanDetailsItemDto
                 {
-                    ExerciseId = i.ExerciseId,
-                    ExerciseTitle = i.Exercise.Title,
-                    OrderIndex = i.OrderIndex,
-                    SectionName = i.SectionName,
-                    PlannedDuration = i.PlannedDuration
+                    ExerciseId = item.ExerciseId,
+                    ExerciseTitle = item.Exercise.Title,
+                    OrderIndex = item.OrderIndex,
+                    SectionName = item.SectionName,
+                    PlannedDuration = item.PlannedDuration
                 })
                 .ToList()
         };
@@ -100,23 +100,47 @@ public class TrainingPlansController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<TrainingPlanDetailsDto>> Create(CreateTrainingPlanRequestDto request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim))
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
         {
             return Unauthorized();
         }
 
-        var userId = int.Parse(userIdClaim);
-
         if (!Enum.TryParse<SportType>(request.SportType, true, out var sportType))
         {
-            return BadRequest(new { message = "Érvénytelen SportType." });
+            return BadRequest(new { message = "Érvénytelen sportág." });
         }
 
-        var exerciseIds = request.Items.Select(i => i.ExerciseId).Distinct().ToList();
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new { message = "Az edzésterv címe kötelező." });
+        }
+
+        if (request.TargetDuration <= 0)
+        {
+            return BadRequest(new { message = "Az edzésterv időtartamának pozitív értéknek kell lennie." });
+        }
+
+        if (sportType == SportType.BeachVolleyball &&
+            (!request.PlayerCount.HasValue || request.PlayerCount.Value <= 0))
+        {
+            return BadRequest(new { message = "Strandröplabda edzéstervnél a játékosok száma kötelező." });
+        }
+
+        if (request.Items == null || request.Items.Count == 0)
+        {
+            return BadRequest(new { message = "Az edzéstervnek legalább egy gyakorlatot tartalmaznia kell." });
+        }
+
+        var exerciseIds = request.Items
+            .Select(item => item.ExerciseId)
+            .Distinct()
+            .ToList();
+
         var existingExerciseIds = await _context.Exercises
-            .Where(e => exerciseIds.Contains(e.Id))
-            .Select(e => e.Id)
+            .Where(exercise => exerciseIds.Contains(exercise.Id))
+            .Select(exercise => exercise.Id)
             .ToListAsync();
 
         if (existingExerciseIds.Count != exerciseIds.Count)
@@ -126,35 +150,42 @@ public class TrainingPlansController : ControllerBase
 
         var plan = new TrainingPlan
         {
-            UserId = userId,
+            UserId = userId.Value,
             Title = request.Title,
             SportType = sportType,
-            PlanType = request.PlanType,
+            PlanType = string.IsNullOrWhiteSpace(request.PlanType)
+                ? "Single"
+                : request.PlanType,
             TargetDuration = request.TargetDuration,
             TargetIntensity = request.TargetIntensity,
             TargetLevel = request.TargetLevel,
             PrimaryFocus = request.PrimaryFocus,
+            PlayerCount = sportType == SportType.BeachVolleyball
+                ? request.PlayerCount
+                : null,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.TrainingPlans.Add(plan);
         await _context.SaveChangesAsync();
 
-        var items = request.Items.Select(i => new TrainingPlanItem
-        {
-            TrainingPlanId = plan.Id,
-            ExerciseId = i.ExerciseId,
-            OrderIndex = i.OrderIndex,
-            SectionName = i.SectionName,
-            PlannedDuration = i.PlannedDuration
-        }).ToList();
+        var planItems = request.Items
+            .Select(item => new TrainingPlanItem
+            {
+                TrainingPlanId = plan.Id,
+                ExerciseId = item.ExerciseId,
+                OrderIndex = item.OrderIndex,
+                SectionName = item.SectionName,
+                PlannedDuration = item.PlannedDuration
+            })
+            .ToList();
 
-        _context.TrainingPlanItems.AddRange(items);
+        _context.TrainingPlanItems.AddRange(planItems);
         await _context.SaveChangesAsync();
 
         var createdPlan = await _context.TrainingPlans
             .Include(tp => tp.Items)
-                .ThenInclude(i => i.Exercise)
+                .ThenInclude(item => item.Exercise)
             .FirstAsync(tp => tp.Id == plan.Id);
 
         var result = new TrainingPlanDetailsDto
@@ -167,20 +198,38 @@ public class TrainingPlansController : ControllerBase
             TargetIntensity = createdPlan.TargetIntensity,
             TargetLevel = createdPlan.TargetLevel,
             PrimaryFocus = createdPlan.PrimaryFocus,
+            PlayerCount = createdPlan.PlayerCount,
             CreatedAt = createdPlan.CreatedAt,
             Items = createdPlan.Items
-                .OrderBy(i => i.OrderIndex)
-                .Select(i => new TrainingPlanDetailsItemDto
+                .OrderBy(item => item.OrderIndex)
+                .Select(item => new TrainingPlanDetailsItemDto
                 {
-                    ExerciseId = i.ExerciseId,
-                    ExerciseTitle = i.Exercise.Title,
-                    OrderIndex = i.OrderIndex,
-                    SectionName = i.SectionName,
-                    PlannedDuration = i.PlannedDuration
+                    ExerciseId = item.ExerciseId,
+                    ExerciseTitle = item.Exercise.Title,
+                    OrderIndex = item.OrderIndex,
+                    SectionName = item.SectionName,
+                    PlannedDuration = item.PlannedDuration
                 })
                 .ToList()
         };
 
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrWhiteSpace(userIdClaim))
+        {
+            return null;
+        }
+
+        if (!int.TryParse(userIdClaim, out var userId))
+        {
+            return null;
+        }
+
+        return userId;
     }
 }

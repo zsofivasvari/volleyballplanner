@@ -11,4 +11,5 @@ public class ExerciseListItemDto
     public int MinPlayers { get; set; }
     public int MaxPlayers { get; set; }
     public string Phase { get; set; } = string.Empty;
+    public List<string> FocusTags { get; set; } = new();
 }

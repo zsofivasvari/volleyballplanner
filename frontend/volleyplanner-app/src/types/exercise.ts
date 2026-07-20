@@ -8,6 +8,7 @@ export interface ExerciseListItem {
   minPlayers: number;
   maxPlayers: number;
   phase: string;
+  focusTags: string[];
 }
 
 export interface ExerciseDetails {
@@ -30,6 +31,7 @@ export interface ExerciseQuery {
   difficulties: string[];
   intensities: string[];
   phases: string[];
+  focusTags: string[];
 }
 
 export interface PagedExercisesResponse {

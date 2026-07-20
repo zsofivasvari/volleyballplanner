@@ -9,5 +9,6 @@ public class CreateTrainingPlanRequestDto
     public string TargetIntensity { get; set; } = string.Empty;
     public string TargetLevel { get; set; } = string.Empty;
     public string PrimaryFocus { get; set; } = string.Empty;
+    public int? PlayerCount { get; set; }
     public List<CreateTrainingPlanItemDto> Items { get; set; } = new();
 }

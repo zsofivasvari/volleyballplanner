@@ -1,14 +1,49 @@
-import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Link,
+  useLocation,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import AppLayout from "../components/layout/AppLayout";
 import { exerciseService } from "../services/exerciseService";
 import type { ExerciseDetails } from "../types/exercise";
 
+function getSafeBackUrl(value: string | null | undefined) {
+  if (!value) {
+    return "/exercises";
+  }
+
+  try {
+    const decoded = decodeURIComponent(value);
+
+    if (decoded.startsWith("/exercises")) {
+      return decoded;
+    }
+
+    return "/exercises";
+  } catch {
+    return "/exercises";
+  }
+}
+
 function ExerciseDetailsPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
   const [exercise, setExercise] = useState<ExerciseDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const backToExercises = useMemo(() => {
+    const stateBackUrl =
+      (location.state as { from?: string } | null)?.from ?? null;
+
+    const queryBackUrl = searchParams.get("returnTo");
+
+    return getSafeBackUrl(queryBackUrl ?? stateBackUrl);
+  }, [location.state, searchParams]);
 
   useEffect(() => {
     const loadExercise = async () => {
@@ -38,7 +73,7 @@ function ExerciseDetailsPage() {
     >
       <div className="toolbar" style={{ marginBottom: "1.5rem" }}>
         <Link
-          to="/exercises"
+          to={backToExercises}
           className="secondary-button"
           style={{ textDecoration: "none" }}
         >
@@ -125,7 +160,9 @@ function ExerciseDetailsPage() {
             <h3 style={{ marginTop: 0 }}>Tagek</h3>
 
             {exercise.tags.length === 0 ? (
-              <p className="info-text">Ehhez a gyakorlathoz nincs tag megadva.</p>
+              <p className="info-text">
+                Ehhez a gyakorlathoz nincs tag megadva.
+              </p>
             ) : (
               <div className="choice-group">
                 {exercise.tags.map((tag) => (

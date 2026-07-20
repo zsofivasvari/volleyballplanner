@@ -28,6 +28,10 @@ export const exerciseService = {
       params.append("Phases", value);
     });
 
+    filters?.focusTags?.forEach((value) => {
+      params.append("FocusTags", value);
+    });
+
     if (filters?.page) {
       params.append("Page", filters.page.toString());
     }

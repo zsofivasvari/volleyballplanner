@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AxiosError } from "axios";
 import AppLayout from "../components/layout/AppLayout";
@@ -9,7 +9,9 @@ import type {
   GeneratedTrainingPlanResponse,
 } from "../types/generation";
 
-const focusOptions = [
+type SupportedSportType = "BeachVolleyball" | "Gym";
+
+const beachFocusOptions = [
   "Nyitás",
   "Nyitásfogadás",
   "Feladás",
@@ -18,6 +20,20 @@ const focusOptions = [
   "Állóképesség",
 ];
 
+const gymFocusOptions = [
+  "Alsótest",
+  "Törzs",
+  "Felsőtest",
+  "Fullbody",
+  "Állóképesség",
+];
+
+const durationPresets = [60, 90, 120];
+
+const getFocusOptionsForSport = (sportType: SupportedSportType) => {
+  return sportType === "Gym" ? gymFocusOptions : beachFocusOptions;
+};
+
 function GenerateTrainingPlanPage() {
   const [formData, setFormData] = useState<GenerateTrainingPlanRequest>({
     sportTypes: ["BeachVolleyball"],
@@ -25,7 +41,7 @@ function GenerateTrainingPlanPage() {
     playerCount: 4,
     intensities: ["Medium"],
     difficulties: ["Beginner"],
-    primaryFocus: "Nyitásfogadás",
+    focusAreas: ["Nyitásfogadás"],
   });
 
   const [generatedPlan, setGeneratedPlan] =
@@ -40,27 +56,85 @@ function GenerateTrainingPlanPage() {
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const selectedSport: SupportedSportType =
+    formData.sportTypes[0] === "Gym" ? "Gym" : "BeachVolleyball";
+
+  const isGym = selectedSport === "Gym";
+
+  const availableFocusOptions = useMemo(() => {
+    return getFocusOptionsForSport(selectedSport);
+  }, [selectedSport]);
+
+  const formattedSport = isGym ? "Gym" : "Beach Volleyball";
+
+  const activeProfileParts = [
+    formattedSport,
+    `${formData.durationMin} perc`,
+    !isGym && formData.playerCount ? `${formData.playerCount} fő` : null,
+    formData.difficulties.join(", "),
+    formData.intensities.join(", "),
+  ].filter(Boolean);
+
+  const activeProfileText = activeProfileParts.join(" · ");
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
-    if (name === "durationMin" || name === "playerCount") {
+    if (name === "durationMin") {
       setFormData((prev) => ({
         ...prev,
-        [name]: Number(value),
+        durationMin: Math.max(10, Number(value) || 10),
       }));
-      return;
     }
+
+    if (name === "playerCount") {
+      setFormData((prev) => ({
+        ...prev,
+        playerCount: Math.max(1, Number(value) || 1),
+      }));
+    }
+  };
+
+  const changeDuration = (delta: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      durationMin: Math.max(10, prev.durationMin + delta),
+    }));
+  };
+
+  const setDurationPreset = (duration: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      durationMin: duration,
+    }));
+  };
+
+  const changePlayerCount = (delta: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      playerCount: Math.max(1, (prev.playerCount ?? 1) + delta),
+    }));
+  };
+
+  const handleSportChange = (sportType: SupportedSportType) => {
+    const availableFocuses = getFocusOptionsForSport(sportType);
+
+    setGeneratedPlan(null);
+    setCustomPlanTitle("");
+    setError("");
+    setSaveError("");
+    setSaveMessage("");
 
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      sportTypes: [sportType],
+      playerCount: sportType === "Gym" ? null : prev.playerCount ?? 4,
+      focusAreas: [availableFocuses[0]],
     }));
   };
 
   const toggleChoiceValue = (
-    field: "sportTypes" | "difficulties" | "intensities",
+    field: "difficulties" | "intensities" | "focusAreas",
     value: string
   ) => {
     setFormData((prev) => {
@@ -76,6 +150,13 @@ function GenerateTrainingPlanPage() {
     });
   };
 
+  const removeFocusArea = (focus: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      focusAreas: prev.focusAreas.filter((item) => item !== focus),
+    }));
+  };
+
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
 
@@ -86,8 +167,20 @@ function GenerateTrainingPlanPage() {
     setCustomPlanTitle("");
     setLoading(true);
 
-    if (formData.sportTypes.length === 0) {
-      setError("Legalább egy sportág kiválasztása kötelező.");
+    if (formData.sportTypes.length !== 1) {
+      setError("Egyszerre pontosan egy sportág választható.");
+      setLoading(false);
+      return;
+    }
+
+    if (formData.durationMin < 10) {
+      setError("Az edzés időtartama legalább 10 perc legyen.");
+      setLoading(false);
+      return;
+    }
+
+    if (!isGym && (!formData.playerCount || formData.playerCount < 1)) {
+      setError("Strandröplabda tervnél a játékosok száma legalább 1 fő legyen.");
       setLoading(false);
       return;
     }
@@ -104,10 +197,34 @@ function GenerateTrainingPlanPage() {
       return;
     }
 
+    if (formData.focusAreas.length === 0) {
+      setError("Legalább egy fókuszterület kiválasztása kötelező.");
+      setLoading(false);
+      return;
+    }
+
+    const invalidFocus = formData.focusAreas.some(
+      (focus) => !availableFocusOptions.includes(focus)
+    );
+
+    if (invalidFocus) {
+      setError("A kiválasztott sportághoz érvénytelen fókuszterület tartozik.");
+      setLoading(false);
+      return;
+    }
+
+    const request: GenerateTrainingPlanRequest = {
+      ...formData,
+      playerCount: isGym ? null : formData.playerCount,
+    };
+
     try {
-      const result = await generationService.generate(formData);
+      const result = await generationService.generate(request);
       setGeneratedPlan(result);
-      setCustomPlanTitle(`${result.sportType} terv - ${result.primaryFocus}`);
+
+      setCustomPlanTitle(
+        `${result.sportType} terv - ${result.focusAreas.join(", ")}`
+      );
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
         setError(err.response?.data?.message || "Sikertelen generálás.");
@@ -120,7 +237,9 @@ function GenerateTrainingPlanPage() {
   };
 
   const handleSavePlan = async () => {
-    if (!generatedPlan) return;
+    if (!generatedPlan) {
+      return;
+    }
 
     setSaveMessage("");
     setSaveError("");
@@ -135,23 +254,26 @@ function GenerateTrainingPlanPage() {
     }
 
     try {
-      const payload = {
-        title: finalTitle,
-        sportType: generatedPlan.sportType,
-        planType: "Single",
-        targetDuration: generatedPlan.targetDuration,
-        targetIntensity: generatedPlan.intensity,
-        targetLevel: generatedPlan.difficulty,
-        primaryFocus: generatedPlan.primaryFocus,
-        items: generatedPlan.items.map((item, index) => ({
-          exerciseId: item.exerciseId,
-          orderIndex: index + 1,
-          sectionName: item.sectionName,
-          plannedDuration: item.plannedDuration,
-        })),
-      };
+      await trainingPlanService.create({
+  title: finalTitle,
+  sportType: generatedPlan.sportType,
+  planType: "Single",
+  targetDuration: generatedPlan.targetDuration,
+  targetIntensity: generatedPlan.intensity,
+  targetLevel: generatedPlan.difficulty,
+  primaryFocus: generatedPlan.focusAreas.join(", "),
+  playerCount:
+    generatedPlan.sportType === "BeachVolleyball"
+      ? formData.playerCount ?? null
+      : null,
+  items: generatedPlan.items.map((item, index) => ({
+    exerciseId: item.exerciseId,
+    orderIndex: index + 1,
+    sectionName: item.sectionName,
+    plannedDuration: item.plannedDuration,
+  })),
+});
 
-      await trainingPlanService.create(payload);
       setSaveMessage("Az edzésterv sikeresen elmentve.");
     } catch {
       setSaveError("Nem sikerült elmenteni az edzéstervet.");
@@ -163,7 +285,7 @@ function GenerateTrainingPlanPage() {
   return (
     <AppLayout
       title="Edzésterv generálása"
-      subtitle="Állítsd be a fő paramétereket, és a rendszer összeállít egy edzésterv-javaslatot."
+      subtitle="Állítsd be a fő paramétereket, és a rendszer összeállít egy személyre szabott edzésterv-javaslatot."
     >
       <div className="toolbar" style={{ marginBottom: "1.5rem" }}>
         <Link
@@ -191,107 +313,242 @@ function GenerateTrainingPlanPage() {
         </Link>
       </div>
 
-      <section className="card filter-card" style={{ marginBottom: "1.5rem" }}>
-        <h2 style={{ marginTop: 0 }}>Generálási beállítások</h2>
+      <section className="card generation-studio-card">
+        <div className="generation-studio-heading">
+          <div>
+            <p className="generation-studio-kicker">Training Plan Builder</p>
+            <h2>Építs tudatos, célzott edzéstervet</h2>
+            <p>
+              Válassz sportágat, állítsd be a terhelési profilt, majd add meg,
+              mely fókuszterületek köré épüljön a terv.
+            </p>
+          </div>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="filter-sections" style={{ marginBottom: "1rem" }}>
-            <div className="form-field">
-              <label>Sportág</label>
-              <div className="choice-group">
-                {["BeachVolleyball", "Gym"].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`choice-chip ${
-                      formData.sportTypes.includes(value) ? "active" : ""
-                    }`}
-                    onClick={() => toggleChoiceValue("sportTypes", value)}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="generation-sport-grid">
+            <button
+              type="button"
+              className={`generation-sport-card ${
+                selectedSport === "BeachVolleyball" ? "active" : ""
+              }`}
+              onClick={() => handleSportChange("BeachVolleyball")}
+            >
+              <span className="generation-sport-orb generation-sport-orb-beach" />
+              <strong>Beach Volleyball</strong>
+            </button>
 
-            <div className="form-field">
-              <label htmlFor="durationMin">Időtartam (perc)</label>
-              <input
-                id="durationMin"
-                name="durationMin"
-                type="number"
-                min={10}
-                value={formData.durationMin}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="playerCount">Játékosok száma</label>
-              <input
-                id="playerCount"
-                name="playerCount"
-                type="number"
-                min={1}
-                value={formData.playerCount}
-                onChange={handleInputChange}
-              />
-            </div>
-
-            <div className="form-field">
-              <label>Nehézség</label>
-              <div className="choice-group">
-                {["Beginner", "Intermediate", "Advanced"].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`choice-chip ${
-                      formData.difficulties.includes(value) ? "active" : ""
-                    }`}
-                    onClick={() => toggleChoiceValue("difficulties", value)}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label>Intenzitás</label>
-              <div className="choice-group">
-                {["Low", "Medium", "High"].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`choice-chip ${
-                      formData.intensities.includes(value) ? "active" : ""
-                    }`}
-                    onClick={() => toggleChoiceValue("intensities", value)}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="primaryFocus">Fő fókuszterület</label>
-              <select
-                id="primaryFocus"
-                name="primaryFocus"
-                value={formData.primaryFocus}
-                onChange={handleInputChange}
-              >
-                {focusOptions.map((focus) => (
-                  <option key={focus} value={focus}>
-                    {focus}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <button
+              type="button"
+              className={`generation-sport-card ${
+                selectedSport === "Gym" ? "active" : ""
+              }`}
+              onClick={() => handleSportChange("Gym")}
+            >
+              <span className="generation-sport-orb generation-sport-orb-gym" />
+              <strong>Gym</strong>
+            </button>
           </div>
 
-          <div className="toolbar">
+          <div className={`generation-config-grid ${isGym ? "generation-config-grid-gym" : ""}`}>
+            <section className="generation-panel generation-core-controls">
+              <div className="generation-panel-heading">
+                <span>Alapparaméterek</span>
+              </div>
+
+              <div
+                className={`generation-stepper-grid ${
+                  isGym ? "generation-stepper-grid-single" : ""
+                }`}
+              >
+                <div className="generation-stepper-card">
+                  <label htmlFor="durationMin">Időtartam</label>
+
+                  <div className="generation-stepper">
+                    <button
+                      type="button"
+                      className="generation-stepper-button"
+                      onClick={() => changeDuration(-5)}
+                      aria-label="Időtartam csökkentése"
+                    >
+                      −
+                    </button>
+
+                    <div className="generation-stepper-value">
+                      <input
+                        id="durationMin"
+                        name="durationMin"
+                        type="number"
+                        min={10}
+                        value={formData.durationMin}
+                        onChange={handleInputChange}
+                      />
+                      <span>perc</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="generation-stepper-button"
+                      onClick={() => changeDuration(5)}
+                      aria-label="Időtartam növelése"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="generation-duration-presets">
+                    {durationPresets.map((duration) => (
+                      <button
+                        key={duration}
+                        type="button"
+                        className={`generation-duration-preset ${
+                          formData.durationMin === duration ? "active" : ""
+                        }`}
+                        onClick={() => setDurationPreset(duration)}
+                      >
+                        {duration} perc
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {!isGym && (
+                  <div className="generation-stepper-card">
+                    <label htmlFor="playerCount">Játékosok száma</label>
+
+                    <div className="generation-stepper">
+                      <button
+                        type="button"
+                        className="generation-stepper-button"
+                        onClick={() => changePlayerCount(-1)}
+                        aria-label="Játékosszám csökkentése"
+                      >
+                        −
+                      </button>
+
+                      <div className="generation-stepper-value">
+                        <input
+                          id="playerCount"
+                          name="playerCount"
+                          type="number"
+                          min={1}
+                          value={formData.playerCount ?? 1}
+                          onChange={handleInputChange}
+                        />
+                        <span>fő</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="generation-stepper-button"
+                        onClick={() => changePlayerCount(1)}
+                        aria-label="Játékosszám növelése"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="generation-panel">
+              <div className="generation-panel-heading">
+                <span>Terhelési profil</span>
+              </div>
+
+              <div className="generation-choice-block">
+                <p>Nehézség</p>
+
+                <div className="generation-pill-group">
+                  {["Beginner", "Intermediate", "Advanced"].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`generation-pill ${
+                        formData.difficulties.includes(value) ? "active" : ""
+                      }`}
+                      onClick={() => toggleChoiceValue("difficulties", value)}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="generation-choice-block">
+                <p>Intenzitás</p>
+
+                <div className="generation-pill-group">
+                  {["Low", "Medium", "High"].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`generation-pill ${
+                        formData.intensities.includes(value) ? "active" : ""
+                      }`}
+                      onClick={() => toggleChoiceValue("intensities", value)}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <section className="generation-focus-panel">
+            <div className="generation-focus-header">
+              <div>
+                <span>Fókuszterületek</span>
+              </div>
+            </div>
+
+            <div className="generation-focus-grid">
+              {availableFocusOptions.map((focus) => (
+                <button
+                  key={focus}
+                  type="button"
+                  className={`generation-focus-card ${
+                    formData.focusAreas.includes(focus) ? "active" : ""
+                  }`}
+                  onClick={() => toggleChoiceValue("focusAreas", focus)}
+                >
+                  <strong>{focus}</strong>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="generation-profile-summary">
+            <div className="generation-profile-head">
+              <strong>Aktuális generálási profil</strong>
+              <span>{formattedSport}</span>
+            </div>
+
+            <p>{activeProfileText}</p>
+
+            {formData.focusAreas.length > 0 ? (
+              <div className="generation-selected-focuses">
+                {formData.focusAreas.map((focus) => (
+                  <button
+                    key={focus}
+                    type="button"
+                    onClick={() => removeFocusArea(focus)}
+                  >
+                    <span>{focus}</span>
+                    <b>×</b>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="generation-empty-focus">
+                Még nincs fókuszterület kiválasztva.
+              </p>
+            )}
+          </section>
+
+          <div className="generation-actions">
             <button className="primary-button" type="submit" disabled={loading}>
               {loading ? "Generálás..." : "Edzésterv generálása"}
             </button>
@@ -299,108 +556,111 @@ function GenerateTrainingPlanPage() {
         </form>
 
         {error && (
-          <p className="error-text" style={{ marginTop: "1rem" }}>
+          <p className="error-text generation-feedback-text">
             {error}
           </p>
         )}
       </section>
 
       {generatedPlan && (
-        <section className="card">
-          <h2 style={{ marginTop: 0 }}>Generált edzésterv</h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "1rem",
-              marginBottom: "1.5rem",
-            }}
-          >
-            <div className="card" style={{ padding: "1rem" }}>
-              <strong>Sportág</strong>
-              <p className="info-text" style={{ marginBottom: 0 }}>
-                {generatedPlan.sportType}
-              </p>
-            </div>
-
-            <div className="card" style={{ padding: "1rem" }}>
-              <strong>Időtartam</strong>
-              <p className="info-text" style={{ marginBottom: 0 }}>
-                {generatedPlan.targetDuration} perc
-              </p>
-            </div>
-
-            <div className="card" style={{ padding: "1rem" }}>
-              <strong>Nehézség</strong>
-              <p className="info-text" style={{ marginBottom: 0 }}>
-                {generatedPlan.difficulty}
-              </p>
-            </div>
-
-            <div className="card" style={{ padding: "1rem" }}>
-              <strong>Intenzitás</strong>
-              <p className="info-text" style={{ marginBottom: 0 }}>
-                {generatedPlan.intensity}
+        <section className="card generated-plan-showcase">
+          <div className="generated-plan-header">
+            <div>
+              <p className="generation-studio-kicker">Generated Plan</p>
+              <h2>Elkészült az edzésterved</h2>
+              <p>
+                A terv a kiválasztott paraméterek és fókuszterületek alapján
+                állt össze.
               </p>
             </div>
           </div>
 
-          <div style={{ marginBottom: "1rem" }}>
-            <strong>Fő fókusz:</strong>{" "}
-            <span className="info-text">{generatedPlan.primaryFocus}</span>
+          <div className="generated-plan-stat-grid">
+            <div className="generated-plan-stat">
+              <span>Sportág</span>
+              <strong>{generatedPlan.sportType}</strong>
+            </div>
+
+            <div className="generated-plan-stat">
+              <span>Időtartam</span>
+              <strong>{generatedPlan.targetDuration} perc</strong>
+            </div>
+
+            <div className="generated-plan-stat">
+              <span>Nehézség</span>
+              <strong>{generatedPlan.difficulty}</strong>
+            </div>
+
+            <div className="generated-plan-stat">
+              <span>Intenzitás</span>
+              <strong>{generatedPlan.intensity}</strong>
+            </div>
           </div>
 
-          <h3>Edzéselemek</h3>
+          <div className="generated-plan-focus-summary">
+            <strong>Fókuszterületek</strong>
 
-          <div className="card-grid">
+            <div>
+              {generatedPlan.focusAreas.map((focus) => (
+                <span key={focus}>{focus}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="generated-items-list">
             {generatedPlan.items.map((item, index) => (
-              <article key={`${item.exerciseId}-${index}`} className="card">
-                <h3 className="exercise-card-title">
-                  <Link
-                    to={`/exercises/${item.exerciseId}`}
-                    style={{ textDecoration: "none", color: "inherit" }}
-                  >
-                    {item.exerciseTitle}
-                  </Link>
-                </h3>
-                <p className="exercise-meta">Szakasz: {item.sectionName}</p>
-                <p className="exercise-meta">
-                  Tervezett idő: {item.plannedDuration} perc
-                </p>
+              <article
+                key={`${item.exerciseId}-${index}`}
+                className="generated-item-card"
+              >
+                <div className="generated-item-index">{index + 1}</div>
+
+                <div>
+                  <h3>
+                    <Link to={`/exercises/${item.exerciseId}`}>
+                      {item.exerciseTitle}
+                    </Link>
+                  </h3>
+
+                  <p>
+                    {item.sectionName} · {item.plannedDuration} perc
+                  </p>
+                </div>
               </article>
             ))}
           </div>
 
-          <div className="form-field" style={{ marginTop: "1.5rem" }}>
-            <label htmlFor="customPlanTitle">Mentett terv neve</label>
-            <input
-              id="customPlanTitle"
-              type="text"
-              value={customPlanTitle}
-              onChange={(e) => setCustomPlanTitle(e.target.value)}
-              placeholder="Például: Hétfői állóképességi edzés"
-            />
-          </div>
+          <div className="generated-save-panel">
+            <div className="form-field">
+              <label htmlFor="customPlanTitle">Mentett terv neve</label>
+              <input
+                id="customPlanTitle"
+                type="text"
+                value={customPlanTitle}
+                onChange={(e) => setCustomPlanTitle(e.target.value)}
+                placeholder="Például: Alsótest és törzs kondi edzés"
+              />
+            </div>
 
-          <div className="toolbar" style={{ marginTop: "1.5rem" }}>
-            <button
-              className="primary-button"
-              onClick={handleSavePlan}
-              disabled={saving}
-            >
-              {saving ? "Mentés..." : "Edzésterv mentése"}
-            </button>
+            <div className="toolbar">
+              <button
+                className="primary-button"
+                onClick={handleSavePlan}
+                disabled={saving}
+              >
+                {saving ? "Mentés..." : "Edzésterv mentése"}
+              </button>
+            </div>
           </div>
 
           {saveMessage && (
-            <p className="success-text" style={{ marginTop: "1rem" }}>
+            <p className="success-text generation-feedback-text">
               {saveMessage}
             </p>
           )}
 
           {saveError && (
-            <p className="error-text" style={{ marginTop: "1rem" }}>
+            <p className="error-text generation-feedback-text">
               {saveError}
             </p>
           )}

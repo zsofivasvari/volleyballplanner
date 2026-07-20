@@ -7,5 +7,6 @@ public class TrainingPlanListItemDto
     public string SportType { get; set; } = string.Empty;
     public int TargetDuration { get; set; }
     public string PrimaryFocus { get; set; } = string.Empty;
+    public int? PlayerCount { get; set; }
     public DateTime CreatedAt { get; set; }
 }

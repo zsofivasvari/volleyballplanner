@@ -1,10 +1,10 @@
 export interface GenerateTrainingPlanRequest {
   sportTypes: string[];
   durationMin: number;
-  playerCount: number;
+  playerCount?: number | null;
   intensities: string[];
   difficulties: string[];
-  primaryFocus: string;
+  focusAreas: string[];
 }
 
 export interface GeneratedTrainingPlanItem {
@@ -19,6 +19,6 @@ export interface GeneratedTrainingPlanResponse {
   targetDuration: number;
   difficulty: string;
   intensity: string;
-  primaryFocus: string;
+  focusAreas: string[];
   items: GeneratedTrainingPlanItem[];
 }

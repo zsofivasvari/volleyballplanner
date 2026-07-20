@@ -7,6 +7,29 @@ import { tagService } from "../services/tagService";
 import { isAdmin } from "../utils/auth";
 import type { Tag } from "../types/tag";
 
+type SupportedSportType = "BeachVolleyball" | "Gym";
+
+const beachFocusNames = new Set([
+  "Nyitás",
+  "Nyitásfogadás",
+  "Feladás",
+  "Támadás",
+  "Blokk/Védekezés",
+  "Állóképesség",
+]);
+
+const gymFocusNames = new Set([
+  "Alsótest",
+  "Törzs",
+  "Felsőtest",
+  "Fullbody",
+  "Állóképesség",
+]);
+
+const getAllowedFocusNames = (sportType: SupportedSportType) => {
+  return sportType === "Gym" ? gymFocusNames : beachFocusNames;
+};
+
 function CreateExercisePage() {
   const navigate = useNavigate();
 
@@ -18,7 +41,7 @@ function CreateExercisePage() {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
-    sportType: "BeachVolleyball",
+    sportType: "BeachVolleyball" as SupportedSportType,
     durationMin: 10,
     difficulty: "Beginner",
     intensity: "Low",
@@ -29,6 +52,7 @@ function CreateExercisePage() {
   });
 
   const admin = isAdmin();
+  const isGym = formData.sportType === "Gym";
 
   useEffect(() => {
     if (!admin) {
@@ -49,15 +73,19 @@ function CreateExercisePage() {
     void loadTags();
   }, [admin]);
 
-  const focusTags = useMemo(
-    () => tags.filter((tag) => tag.type === "Focus"),
-    [tags]
-  );
+  const allowedFocusNames = useMemo(() => {
+    return getAllowedFocusNames(formData.sportType);
+  }, [formData.sportType]);
 
-  const otherTags = useMemo(
-    () => tags.filter((tag) => tag.type !== "Focus"),
-    [tags]
-  );
+  const focusTags = useMemo(() => {
+    return tags.filter(
+      (tag) => tag.type === "Focus" && allowedFocusNames.has(tag.name)
+    );
+  }, [tags, allowedFocusNames]);
+
+  const otherTags = useMemo(() => {
+    return tags.filter((tag) => tag.type !== "Focus");
+  }, [tags]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -67,7 +95,7 @@ function CreateExercisePage() {
     if (["durationMin", "minPlayers", "maxPlayers"].includes(name)) {
       setFormData((prev) => ({
         ...prev,
-        [name]: Number(value),
+        [name]: Math.max(1, Number(value) || 1),
       }));
       return;
     }
@@ -82,6 +110,36 @@ function CreateExercisePage() {
     field: "sportType" | "difficulty" | "intensity" | "phase",
     value: string
   ) => {
+    if (field === "sportType") {
+      const nextSportType = value as SupportedSportType;
+      const nextAllowedFocusNames = getAllowedFocusNames(nextSportType);
+
+      setFormData((prev) => ({
+        ...prev,
+        sportType: nextSportType,
+        minPlayers: nextSportType === "Gym" ? 1 : prev.minPlayers,
+        maxPlayers:
+          nextSportType === "Gym"
+            ? 1
+            : Math.max(prev.maxPlayers, prev.minPlayers, 2),
+        tagIds: prev.tagIds.filter((tagId) => {
+          const selectedTag = tags.find((tag) => tag.id === tagId);
+
+          if (!selectedTag) {
+            return false;
+          }
+
+          if (selectedTag.type !== "Focus") {
+            return true;
+          }
+
+          return nextAllowedFocusNames.has(selectedTag.name);
+        }),
+      }));
+
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -111,8 +169,28 @@ function CreateExercisePage() {
       return;
     }
 
-    if (formData.minPlayers > formData.maxPlayers) {
+    if (!formData.title.trim()) {
+      setError("A cím megadása kötelező.");
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      setError("A leírás megadása kötelező.");
+      return;
+    }
+
+    if (formData.durationMin <= 0) {
+      setError("Az időtartamnak pozitív értéknek kell lennie.");
+      return;
+    }
+
+    if (!isGym && formData.minPlayers > formData.maxPlayers) {
       setError("A minimum játékosszám nem lehet nagyobb, mint a maximum.");
+      return;
+    }
+
+    if (!isGym && (formData.minPlayers <= 0 || formData.maxPlayers <= 0)) {
+      setError("A játékosszámoknak pozitív értéknek kell lenniük.");
       return;
     }
 
@@ -127,8 +205,14 @@ function CreateExercisePage() {
       }
     }
 
+    const requestData = {
+      ...formData,
+      minPlayers: isGym ? 1 : formData.minPlayers,
+      maxPlayers: isGym ? 1 : formData.maxPlayers,
+    };
+
     try {
-      await exerciseService.create(formData);
+      await exerciseService.create(requestData);
       setSuccessMessage("A gyakorlat sikeresen létrejött.");
       setTimeout(() => navigate("/exercises"), 1000);
     } catch (err: unknown) {
@@ -227,18 +311,20 @@ function CreateExercisePage() {
             <div className="form-field">
               <label>Sportág</label>
               <div className="choice-group">
-                {["BeachVolleyball", "Gym"].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`choice-chip ${
-                      formData.sportType === value ? "active" : ""
-                    }`}
-                    onClick={() => handleChoiceChange("sportType", value)}
-                  >
-                    {value}
-                  </button>
-                ))}
+                {(["BeachVolleyball", "Gym"] as SupportedSportType[]).map(
+                  (value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`choice-chip ${
+                        formData.sportType === value ? "active" : ""
+                      }`}
+                      onClick={() => handleChoiceChange("sportType", value)}
+                    >
+                      {value}
+                    </button>
+                  )
+                )}
               </div>
             </div>
 
@@ -296,31 +382,35 @@ function CreateExercisePage() {
               </div>
             </div>
 
-            <div className="form-field">
-              <label htmlFor="minPlayers">Minimum játékos</label>
-              <input
-                id="minPlayers"
-                name="minPlayers"
-                type="number"
-                min={1}
-                value={formData.minPlayers}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
+            {!isGym && (
+              <>
+                <div className="form-field">
+                  <label htmlFor="minPlayers">Minimum játékos</label>
+                  <input
+                    id="minPlayers"
+                    name="minPlayers"
+                    type="number"
+                    min={1}
+                    value={formData.minPlayers}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
 
-            <div className="form-field">
-              <label htmlFor="maxPlayers">Maximum játékos</label>
-              <input
-                id="maxPlayers"
-                name="maxPlayers"
-                type="number"
-                min={1}
-                value={formData.maxPlayers}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
+                <div className="form-field">
+                  <label htmlFor="maxPlayers">Maximum játékos</label>
+                  <input
+                    id="maxPlayers"
+                    name="maxPlayers"
+                    type="number"
+                    min={1}
+                    value={formData.maxPlayers}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </>
+            )}
 
             <div className="form-field" style={{ gridColumn: "1 / -1" }}>
               <label>Fókuszterületek</label>
@@ -329,8 +419,7 @@ function CreateExercisePage() {
 
               {!loadingTags && focusTags.length === 0 && (
                 <p className="info-text">
-                  Nincs elérhető fókusz tag. Hozd létre a Focus típusú tageket az
-                  adatbázisban.
+                  Nincs elérhető fókusz tag az adott sportághoz.
                 </p>
               )}
 

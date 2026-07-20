@@ -10,6 +10,7 @@ public class TrainingPlanDetailsDto
     public string TargetIntensity { get; set; } = string.Empty;
     public string TargetLevel { get; set; } = string.Empty;
     public string PrimaryFocus { get; set; } = string.Empty;
+    public int? PlayerCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<TrainingPlanDetailsItemDto> Items { get; set; } = new();
 }

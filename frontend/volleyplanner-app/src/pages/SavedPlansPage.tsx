@@ -93,13 +93,15 @@ function SavedPlansPage() {
                   <h2 className="saved-plan-title">{plan.title}</h2>
 
                   <div className="saved-plan-meta">
-                    <span>Sportág: {plan.sportType}</span>
-                    <span>Időtartam: {plan.targetDuration} perc</span>
-                    <span>Fő fókusz: {plan.primaryFocus}</span>
-                    <span>
-                      Létrehozva:{" "}
-                      {new Date(plan.createdAt).toLocaleString("hu-HU")}
-                    </span>
+                    <p>Sportág: {plan.sportType}</p>
+
+                    {plan.sportType === "BeachVolleyball" && plan.playerCount && (
+                      <p>Játékosok száma: {plan.playerCount} fő</p>
+                    )}
+
+                    <p>Időtartam: {plan.targetDuration} perc</p>
+                    <p>Fő fókusz: {plan.primaryFocus}</p>
+                    <p>Létrehozva: {new Date(plan.createdAt).toLocaleString("hu-HU")}</p>
                   </div>
 
                   <div className="saved-plan-actions">
