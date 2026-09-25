@@ -13,6 +13,7 @@ import ConfirmEmailPage from "./pages/ConfirmEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import StatisticsPage from "./pages/StatisticsPage";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (
@@ -89,6 +90,15 @@ function App() {
           element={
             <ProtectedRoute>
               <StatisticsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
             </ProtectedRoute>
           }
         />
