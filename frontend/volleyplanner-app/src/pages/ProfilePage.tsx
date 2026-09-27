@@ -7,7 +7,8 @@ import type { UserProfileResponse } from "../types/auth";
 import type { SportRolesResponse } from "../types/sportRole";
 
 function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [profile, setProfile] =
+    useState<UserProfileResponse | null>(null);
 
   const [roles, setRoles] = useState<SportRolesResponse>({
     isPlayer: false,
@@ -16,7 +17,6 @@ function ProfilePage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -52,8 +52,9 @@ function ProfilePage() {
     void loadProfile();
   }, []);
 
-  const handlePlayerChange = () => {
+  const togglePlayer = () => {
     setSuccessMessage("");
+    setError("");
 
     setRoles((current) => ({
       ...current,
@@ -61,8 +62,9 @@ function ProfilePage() {
     }));
   };
 
-  const handleOrganizerCoachChange = () => {
+  const toggleOrganizerCoach = () => {
     setSuccessMessage("");
+    setError("");
 
     setRoles((current) => ({
       ...current,
@@ -72,7 +74,9 @@ function ProfilePage() {
 
   const handleSave = async () => {
     if (!roles.isPlayer && !roles.isOrganizerCoach) {
-      setError("Legalább egy sportbeli szerepkört ki kell választani.");
+      setError(
+        "Legalább egy sportbeli szerepkört ki kell választani."
+      );
       setSuccessMessage("");
       return;
     }
@@ -86,7 +90,10 @@ function ProfilePage() {
         await sportRoleService.updateMySportRoles(roles);
 
       setRoles(updatedRoles);
-      setSuccessMessage("A sportbeli szerepkörök sikeresen mentve.");
+
+      setSuccessMessage(
+        "A sportbeli szerepkörök sikeresen mentve."
+      );
     } catch (err) {
       console.error(err);
 
@@ -137,23 +144,25 @@ function ProfilePage() {
 
           <div>
             <p className="profile-label">Név</p>
-            <h2 className="profile-name">{profile?.name}</h2>
+            <h2 className="profile-name">
+              {profile?.name ?? "Nincs megadva"}
+            </h2>
 
             <p className="profile-label">Email</p>
-            <p className="profile-value">{profile?.email}</p>
+            <p className="profile-value">
+              {profile?.email ?? "Nincs megadva"}
+            </p>
           </div>
         </section>
 
         <section className="card profile-role-card">
           <div className="profile-section-heading">
-            <div>
-              <h2>Sportbeli szerepkörök</h2>
+            <h2>Sportbeli szerepkörök</h2>
 
-              <p>
-                Válaszd ki, milyen szerepekben szeretnéd használni
-                a VolleyMind rendszerét.
-              </p>
-            </div>
+            <p>
+              Válaszd ki, milyen szerepekben szeretnéd használni
+              a VolleyMind alkalmazást.
+            </p>
           </div>
 
           <div className="profile-role-options">
@@ -162,7 +171,7 @@ function ProfilePage() {
               className={`profile-role-option ${
                 roles.isPlayer ? "active" : ""
               }`}
-              onClick={handlePlayerChange}
+              onClick={togglePlayer}
             >
               <div className="profile-role-checkbox">
                 {roles.isPlayer ? "✓" : ""}
@@ -172,8 +181,8 @@ function ProfilePage() {
                 <strong>Játékos</strong>
 
                 <span>
-                  Edzések böngészése és azokra történő jelentkezés,
-                  valamint versenyeken való részvétel.
+                  Edzések böngészése, jelentkezés és versenyeken
+                  való részvétel.
                 </span>
               </div>
             </button>
@@ -183,7 +192,7 @@ function ProfilePage() {
               className={`profile-role-option ${
                 roles.isOrganizerCoach ? "active" : ""
               }`}
-              onClick={handleOrganizerCoachChange}
+              onClick={toggleOrganizerCoach}
             >
               <div className="profile-role-checkbox">
                 {roles.isOrganizerCoach ? "✓" : ""}
@@ -193,17 +202,22 @@ function ProfilePage() {
                 <strong>Edző / Szervező</strong>
 
                 <span>
-                  Edzések és versenyek létrehozása, meghirdetése
-                  és kezelése.
+                  Edzések és versenyek létrehozása és kezelése.
                 </span>
               </div>
             </button>
           </div>
 
-          {error && <p className="error-text">{error}</p>}
+          {error && (
+            <p className="error-text">
+              {error}
+            </p>
+          )}
 
           {successMessage && (
-            <p className="success-text">{successMessage}</p>
+            <p className="success-text">
+              {successMessage}
+            </p>
           )}
 
           <div className="profile-actions">
@@ -213,7 +227,9 @@ function ProfilePage() {
               onClick={handleSave}
               disabled={saving}
             >
-              {saving ? "Mentés..." : "Szerepkörök mentése"}
+              {saving
+                ? "Mentés..."
+                : "Szerepkörök mentése"}
             </button>
           </div>
         </section>
@@ -224,12 +240,16 @@ function ProfilePage() {
           <div className="profile-detail-grid">
             <div>
               <span>Szint</span>
-              <strong>{profile?.level ?? "Nincs megadva"}</strong>
+              <strong>
+                {profile?.level ?? "Nincs megadva"}
+              </strong>
             </div>
 
             <div>
               <span>Cél</span>
-              <strong>{profile?.goal ?? "Nincs megadva"}</strong>
+              <strong>
+                {profile?.goal ?? "Nincs megadva"}
+              </strong>
             </div>
 
             <div>

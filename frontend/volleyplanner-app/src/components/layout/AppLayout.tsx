@@ -13,6 +13,7 @@ function AppLayout({ title, subtitle, children }: AppLayoutProps) {
     localStorage.removeItem("token");
     localStorage.removeItem("userName");
     localStorage.removeItem("userEmail");
+
     window.location.href = "/";
   };
 
@@ -28,19 +29,31 @@ function AppLayout({ title, subtitle, children }: AppLayoutProps) {
             <NavLink to="/exercises" className="app-nav-link">
               Gyakorlatok
             </NavLink>
+
             <NavLink to="/generate" className="app-nav-link">
               Generálás
             </NavLink>
+
             <NavLink to="/plans" className="app-nav-link">
               Tervek
             </NavLink>
+
             <NavLink to="/planner" className="app-nav-link">
               Tervező
             </NavLink>
+
             <NavLink to="/statistics" className="app-nav-link">
               Statisztikák
             </NavLink>
-            <button className="danger-button nav-logout" onClick={handleLogout}>
+
+            <NavLink to="/profile" className="app-nav-link">
+              Profil
+            </NavLink>
+
+            <button
+              className="danger-button nav-logout"
+              onClick={handleLogout}
+            >
               Kilépés
             </button>
           </div>
@@ -51,7 +64,12 @@ function AppLayout({ title, subtitle, children }: AppLayoutProps) {
         <div className="page-header">
           <div>
             <h1 className="page-title">{title}</h1>
-            {subtitle && <p className="page-subtitle">{subtitle}</p>}
+
+            {subtitle && (
+              <p className="page-subtitle">
+                {subtitle}
+              </p>
+            )}
           </div>
         </div>
 
@@ -59,30 +77,45 @@ function AppLayout({ title, subtitle, children }: AppLayoutProps) {
       </main>
 
       <nav className="mobile-bottom-nav">
-        <NavLink to="/exercises" className="mobile-bottom-link">
+        <NavLink
+          to="/exercises"
+          className="mobile-bottom-link"
+        >
           <span>🏐</span>
           <small>Gyakorlatok</small>
         </NavLink>
 
-        <NavLink to="/generate" className="mobile-bottom-link">
+        <NavLink
+          to="/generate"
+          className="mobile-bottom-link"
+        >
           <span>✨</span>
           <small>Generálás</small>
         </NavLink>
 
-        <NavLink to="/planner" className="mobile-bottom-link">
+        <NavLink
+          to="/planner"
+          className="mobile-bottom-link"
+        >
           <span>📅</span>
           <small>Tervező</small>
         </NavLink>
 
-        <NavLink to="/statistics" className="mobile-bottom-link">
+        <NavLink
+          to="/statistics"
+          className="mobile-bottom-link"
+        >
           <span>📊</span>
           <small>Statisztikák</small>
         </NavLink>
 
-        <button className="mobile-bottom-link mobile-logout" onClick={handleLogout}>
-          <span>↪</span>
-          <small>Kilépés</small>
-        </button>
+        <NavLink
+          to="/profile"
+          className="mobile-bottom-link"
+        >
+          <span>👤</span>
+          <small>Profil</small>
+        </NavLink>
       </nav>
     </div>
   );

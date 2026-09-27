@@ -1,11 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ExercisesPage from "./pages/ExercisesPage";
 import ExerciseDetailsPage from "./pages/ExerciseDetailsPage";
 import CreateExercisePage from "./pages/CreateExercisePage";
 import GenerateTrainingPlanPage from "./pages/GenerateTrainingPlanPage";
-import ProtectedRoute from "./routes/ProtectedRoute";
 import SavedPlansPage from "./pages/SavedPlansPage";
 import TrainingPlanDetailsPage from "./pages/TrainingPlanDetailsPage";
 import WeeklyPlannerPage from "./pages/WeeklyPlannerPage";
@@ -15,12 +15,21 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import StatisticsPage from "./pages/StatisticsPage";
 import ProfilePage from "./pages/ProfilePage";
 
+import ProtectedRoute from "./routes/ProtectedRoute";
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/"
+          element={<LoginPage />}
+        />
+
+        <Route
+          path="/register"
+          element={<RegisterPage />}
+        />
 
         <Route
           path="/exercises"
@@ -103,9 +112,20 @@ function App() {
           }
         />
 
-        <Route path="/confirm-email" element={<ConfirmEmailPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route
+          path="/confirm-email"
+          element={<ConfirmEmailPage />}
+        />
+
+        <Route
+          path="/forgot-password"
+          element={<ForgotPasswordPage />}
+        />
+
+        <Route
+          path="/reset-password"
+          element={<ResetPasswordPage />}
+        />
       </Routes>
     </BrowserRouter>
   );

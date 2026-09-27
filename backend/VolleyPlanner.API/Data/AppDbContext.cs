@@ -5,7 +5,8 @@ namespace VolleyPlanner.API.Data;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    public AppDbContext(DbContextOptions<AppDbContext> options)
+        : base(options)
     {
     }
 
@@ -21,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<TrainingPlanItem> TrainingPlanItems => Set<TrainingPlanItem>();
     public DbSet<GenerationRequest> GenerationRequests => Set<GenerationRequest>();
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
+
+    public DbSet<TrainingSession> TrainingSessions => Set<TrainingSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -46,12 +49,20 @@ public class AppDbContext : DbContext
 
         // Egy user ugyanazt a sport szerepkört csak egyszer kaphatja meg
         modelBuilder.Entity<UserSportRole>()
-            .HasIndex(usr => new { usr.UserId, usr.RoleType })
+            .HasIndex(usr => new
+            {
+                usr.UserId,
+                usr.RoleType
+            })
             .IsUnique();
 
         // ExerciseTag összetett kulcs
         modelBuilder.Entity<ExerciseTag>()
-            .HasKey(et => new { et.ExerciseId, et.TagId });
+            .HasKey(et => new
+            {
+                et.ExerciseId,
+                et.TagId
+            });
 
         modelBuilder.Entity<ExerciseTag>()
             .HasOne(et => et.Exercise)
@@ -104,5 +115,19 @@ public class AppDbContext : DbContext
             .WithMany(tp => tp.CalendarEvents)
             .HasForeignKey(ce => ce.TrainingPlanId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // TrainingSession - Organizer User
+        modelBuilder.Entity<TrainingSession>()
+            .HasOne(ts => ts.OrganizerUser)
+            .WithMany(u => u.OrganizedTrainingSessions)
+            .HasForeignKey(ts => ts.OrganizerUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // TrainingSession - TrainingPlan
+        modelBuilder.Entity<TrainingSession>()
+            .HasOne(ts => ts.TrainingPlan)
+            .WithMany(tp => tp.TrainingSessions)
+            .HasForeignKey(ts => ts.TrainingPlanId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
