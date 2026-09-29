@@ -1,10 +1,14 @@
 export interface CalendarEvent {
   id: number;
-  trainingPlanId: number;
+  trainingPlanId?: number | null;
+  trainingSessionId?: number | null;
+
   title: string;
   sportType: string;
+
   startTime: string;
   endTime: string;
+
   status: string;
 }
 

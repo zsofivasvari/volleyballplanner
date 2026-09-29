@@ -658,7 +658,11 @@ function WeeklyPlannerPage() {
                                 </button>
 
                                 <Link
-                                  to={`/plans/${event.trainingPlanId}`}
+                                  to={
+                                    event.trainingSessionId
+                                      ? `/trainings/${event.trainingSessionId}`
+                                      : `/plans/${event.trainingPlanId}`
+                                  }
                                   className="calendar-event-title"
                                   onClick={(e) => e.stopPropagation()}
                                 >
@@ -715,7 +719,11 @@ function WeeklyPlannerPage() {
                             >
                               <div>
                                 <Link
-                                  to={`/plans/${event.trainingPlanId}`}
+                                  to={
+                                    event.trainingSessionId
+                                      ? `/trainings/${event.trainingSessionId}`
+                                      : `/plans/${event.trainingPlanId}`
+                                  }
                                   className="mobile-event-title"
                                 >
                                   {event.title}

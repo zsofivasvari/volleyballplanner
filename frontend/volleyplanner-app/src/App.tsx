@@ -14,6 +14,10 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import StatisticsPage from "./pages/StatisticsPage";
 import ProfilePage from "./pages/ProfilePage";
+import TrainingSessionsPage from "./pages/TrainingSessionsPage";
+import TrainingSessionDetailsPage from "./pages/TrainingSessionDetailsPage";
+import CreateTrainingSessionPage from "./pages/CreateTrainingSessionPage";
+import MyTrainingSessionsPage from "./pages/MyTrainingSessionsPage";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 
@@ -21,15 +25,9 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route
-          path="/"
-          element={<LoginPage />}
-        />
+        <Route path="/" element={<LoginPage />} />
 
-        <Route
-          path="/register"
-          element={<RegisterPage />}
-        />
+        <Route path="/register" element={<RegisterPage />} />
 
         <Route
           path="/exercises"
@@ -125,6 +123,42 @@ function App() {
         <Route
           path="/reset-password"
           element={<ResetPasswordPage />}
+        />
+
+        <Route
+          path="/trainings"
+          element={
+            <ProtectedRoute>
+              <TrainingSessionsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/trainings/new"
+          element={
+            <ProtectedRoute>
+              <CreateTrainingSessionPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/trainings/mine"
+          element={
+            <ProtectedRoute>
+              <MyTrainingSessionsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/trainings/:id"
+          element={
+            <ProtectedRoute>
+              <TrainingSessionDetailsPage />
+            </ProtectedRoute>
+          }
         />
       </Routes>
     </BrowserRouter>

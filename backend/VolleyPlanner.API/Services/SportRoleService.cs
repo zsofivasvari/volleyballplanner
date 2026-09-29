@@ -50,10 +50,12 @@ public class SportRoleService : ISportRoleService
             throw new Exception("A felhasználó nem található.");
         }
 
-        if (!request.IsPlayer && !request.IsOrganizerCoach)
+        // Pontosan egy szerepkör választható.
+        // false/false és true/true sem engedélyezett.
+        if (request.IsPlayer == request.IsOrganizerCoach)
         {
             throw new Exception(
-                "Legalább egy sportbeli szerepkört ki kell választani.");
+                "Pontosan egy sportbeli szerepkört kell kiválasztani.");
         }
 
         var existingRoles = await _context.UserSportRoles
@@ -71,8 +73,7 @@ public class SportRoleService : ISportRoleService
                     RoleType = SportRoleType.Player
                 });
         }
-
-        if (request.IsOrganizerCoach)
+        else
         {
             _context.UserSportRoles.Add(
                 new UserSportRole

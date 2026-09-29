@@ -33,4 +33,12 @@ public class TrainingSession
     public User OrganizerUser { get; set; } = null!;
 
     public TrainingPlan? TrainingPlan { get; set; }
+
+    public ICollection<TrainingBooking> Bookings { get; set; }
+        = new List<TrainingBooking>();
+
+    // Azok a felhasználói naptáresemények,
+    // amelyek ebből a meghirdetett edzésből jöttek létre.
+    public ICollection<CalendarEvent> CalendarEvents { get; set; }
+        = new List<CalendarEvent>();
 }

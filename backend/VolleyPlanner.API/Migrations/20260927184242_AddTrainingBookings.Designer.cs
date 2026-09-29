@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VolleyPlanner.API.Data;
 
@@ -11,9 +12,11 @@ using VolleyPlanner.API.Data;
 namespace VolleyPlanner.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260927184242_AddTrainingBookings")]
+    partial class AddTrainingBookings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -50,10 +53,7 @@ namespace VolleyPlanner.API.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("TrainingPlanId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("TrainingSessionId")
+                    b.Property<int>("TrainingPlanId")
                         .HasColumnType("int");
 
                     b.Property<int>("UserId")
@@ -63,11 +63,7 @@ namespace VolleyPlanner.API.Migrations
 
                     b.HasIndex("TrainingPlanId");
 
-                    b.HasIndex("TrainingSessionId");
-
-                    b.HasIndex("UserId", "TrainingSessionId")
-                        .IsUnique()
-                        .HasFilter("[TrainingSessionId] IS NOT NULL");
+                    b.HasIndex("UserId");
 
                     b.ToTable("CalendarEvents");
                 });
@@ -485,12 +481,8 @@ namespace VolleyPlanner.API.Migrations
                     b.HasOne("VolleyPlanner.API.Entities.TrainingPlan", "TrainingPlan")
                         .WithMany("CalendarEvents")
                         .HasForeignKey("TrainingPlanId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("VolleyPlanner.API.Entities.TrainingSession", "TrainingSession")
-                        .WithMany("CalendarEvents")
-                        .HasForeignKey("TrainingSessionId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("VolleyPlanner.API.Entities.User", "User")
                         .WithMany("CalendarEvents")
@@ -499,8 +491,6 @@ namespace VolleyPlanner.API.Migrations
                         .IsRequired();
 
                     b.Navigation("TrainingPlan");
-
-                    b.Navigation("TrainingSession");
 
                     b.Navigation("User");
                 });
@@ -646,8 +636,6 @@ namespace VolleyPlanner.API.Migrations
             modelBuilder.Entity("VolleyPlanner.API.Entities.TrainingSession", b =>
                 {
                     b.Navigation("Bookings");
-
-                    b.Navigation("CalendarEvents");
                 });
 
             modelBuilder.Entity("VolleyPlanner.API.Entities.User", b =>

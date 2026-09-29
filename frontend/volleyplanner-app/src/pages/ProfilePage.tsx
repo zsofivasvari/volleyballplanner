@@ -32,7 +32,25 @@ function ProfilePage() {
         ]);
 
         setProfile(profileData);
-        setRoles(roleData);
+
+        // Ha régi adat miatt még mindkét szerep igaz lenne,
+        // a frontend nem tartja meg mindkettőt.
+        if (roleData.isOrganizerCoach) {
+          setRoles({
+            isPlayer: false,
+            isOrganizerCoach: true,
+          });
+        } else if (roleData.isPlayer) {
+          setRoles({
+            isPlayer: true,
+            isOrganizerCoach: false,
+          });
+        } else {
+          setRoles({
+            isPlayer: false,
+            isOrganizerCoach: false,
+          });
+        }
       } catch (err) {
         console.error(err);
 
@@ -42,7 +60,9 @@ function ProfilePage() {
               "Nem sikerült betölteni a profiladatokat."
           );
         } else {
-          setError("Nem sikerült betölteni a profiladatokat.");
+          setError(
+            "Nem sikerült betölteni a profiladatokat."
+          );
         }
       } finally {
         setLoading(false);
@@ -52,30 +72,30 @@ function ProfilePage() {
     void loadProfile();
   }, []);
 
-  const togglePlayer = () => {
+  const selectPlayer = () => {
     setSuccessMessage("");
     setError("");
 
-    setRoles((current) => ({
-      ...current,
-      isPlayer: !current.isPlayer,
-    }));
+    setRoles({
+      isPlayer: true,
+      isOrganizerCoach: false,
+    });
   };
 
-  const toggleOrganizerCoach = () => {
+  const selectOrganizerCoach = () => {
     setSuccessMessage("");
     setError("");
 
-    setRoles((current) => ({
-      ...current,
-      isOrganizerCoach: !current.isOrganizerCoach,
-    }));
+    setRoles({
+      isPlayer: false,
+      isOrganizerCoach: true,
+    });
   };
 
   const handleSave = async () => {
-    if (!roles.isPlayer && !roles.isOrganizerCoach) {
+    if (roles.isPlayer === roles.isOrganizerCoach) {
       setError(
-        "Legalább egy sportbeli szerepkört ki kell választani."
+        "Pontosan egy sportbeli szerepkört kell kiválasztani."
       );
       setSuccessMessage("");
       return;
@@ -92,7 +112,7 @@ function ProfilePage() {
       setRoles(updatedRoles);
 
       setSuccessMessage(
-        "A sportbeli szerepkörök sikeresen mentve."
+        "A sportbeli szerepkör sikeresen mentve."
       );
     } catch (err) {
       console.error(err);
@@ -100,10 +120,12 @@ function ProfilePage() {
       if (axios.isAxiosError(err)) {
         setError(
           err.response?.data?.message ??
-            "Nem sikerült menteni a szerepköröket."
+            "Nem sikerült menteni a szerepkört."
         );
       } else {
-        setError("Nem sikerült menteni a szerepköröket.");
+        setError(
+          "Nem sikerült menteni a szerepkört."
+        );
       }
     } finally {
       setSaving(false);
@@ -122,10 +144,12 @@ function ProfilePage() {
     return (
       <AppLayout
         title="Profil"
-        subtitle="Felhasználói adatok és sportbeli szerepkörök."
+        subtitle="Felhasználói adatok és sportbeli szerepkör."
       >
         <div className="card">
-          <p className="info-text">Profil betöltése...</p>
+          <p className="info-text">
+            Profil betöltése...
+          </p>
         </div>
       </AppLayout>
     );
@@ -134,7 +158,7 @@ function ProfilePage() {
   return (
     <AppLayout
       title="Profil"
-      subtitle="Felhasználói adatok és sportbeli szerepkörök kezelése."
+      subtitle="Felhasználói adatok és sportbeli szerepkör kezelése."
     >
       <div className="profile-grid">
         <section className="card profile-info-card">
@@ -143,12 +167,18 @@ function ProfilePage() {
           </div>
 
           <div>
-            <p className="profile-label">Név</p>
+            <p className="profile-label">
+              Név
+            </p>
+
             <h2 className="profile-name">
               {profile?.name ?? "Nincs megadva"}
             </h2>
 
-            <p className="profile-label">Email</p>
+            <p className="profile-label">
+              Email
+            </p>
+
             <p className="profile-value">
               {profile?.email ?? "Nincs megadva"}
             </p>
@@ -157,11 +187,12 @@ function ProfilePage() {
 
         <section className="card profile-role-card">
           <div className="profile-section-heading">
-            <h2>Sportbeli szerepkörök</h2>
+            <h2>Sportbeli szerepkör</h2>
 
             <p>
-              Válaszd ki, milyen szerepekben szeretnéd használni
-              a VolleyMind alkalmazást.
+              Válaszd ki, milyen szerepkörben szeretnéd
+              használni a VolleyMind alkalmazást. Egyszerre
+              egy szerepkör lehet aktív.
             </p>
           </div>
 
@@ -171,7 +202,7 @@ function ProfilePage() {
               className={`profile-role-option ${
                 roles.isPlayer ? "active" : ""
               }`}
-              onClick={togglePlayer}
+              onClick={selectPlayer}
             >
               <div className="profile-role-checkbox">
                 {roles.isPlayer ? "✓" : ""}
@@ -181,8 +212,8 @@ function ProfilePage() {
                 <strong>Játékos</strong>
 
                 <span>
-                  Edzések böngészése, jelentkezés és versenyeken
-                  való részvétel.
+                  Edzések böngészése, jelentkezés és
+                  versenyeken való részvétel.
                 </span>
               </div>
             </button>
@@ -192,7 +223,7 @@ function ProfilePage() {
               className={`profile-role-option ${
                 roles.isOrganizerCoach ? "active" : ""
               }`}
-              onClick={toggleOrganizerCoach}
+              onClick={selectOrganizerCoach}
             >
               <div className="profile-role-checkbox">
                 {roles.isOrganizerCoach ? "✓" : ""}
@@ -202,7 +233,8 @@ function ProfilePage() {
                 <strong>Edző / Szervező</strong>
 
                 <span>
-                  Edzések és versenyek létrehozása és kezelése.
+                  Edzések és versenyek létrehozása és
+                  kezelése.
                 </span>
               </div>
             </button>
@@ -229,63 +261,71 @@ function ProfilePage() {
             >
               {saving
                 ? "Mentés..."
-                : "Szerepkörök mentése"}
+                : "Szerepkör mentése"}
             </button>
           </div>
         </section>
 
-        <section className="card profile-details-card">
-          <h2>Játékosprofil</h2>
+        {roles.isPlayer && (
+          <section className="card profile-details-card">
+            <h2>Játékosprofil</h2>
 
-          <div className="profile-detail-grid">
-            <div>
-              <span>Szint</span>
-              <strong>
-                {profile?.level ?? "Nincs megadva"}
-              </strong>
-            </div>
+            <div className="profile-detail-grid">
+              <div>
+                <span>Szint</span>
 
-            <div>
-              <span>Cél</span>
-              <strong>
-                {profile?.goal ?? "Nincs megadva"}
-              </strong>
-            </div>
+                <strong>
+                  {profile?.level ?? "Nincs megadva"}
+                </strong>
+              </div>
 
-            <div>
-              <span>Életkor</span>
-              <strong>
-                {profile?.age != null
-                  ? `${profile.age} év`
-                  : "Nincs megadva"}
-              </strong>
-            </div>
+              <div>
+                <span>Cél</span>
 
-            <div>
-              <span>Magasság</span>
-              <strong>
-                {profile?.height != null
-                  ? `${profile.height} cm`
-                  : "Nincs megadva"}
-              </strong>
-            </div>
+                <strong>
+                  {profile?.goal ?? "Nincs megadva"}
+                </strong>
+              </div>
 
-            <div>
-              <span>Testsúly</span>
-              <strong>
-                {profile?.weight != null
-                  ? `${profile.weight} kg`
-                  : "Nincs megadva"}
-              </strong>
+              <div>
+                <span>Életkor</span>
+
+                <strong>
+                  {profile?.age != null
+                    ? `${profile.age} év`
+                    : "Nincs megadva"}
+                </strong>
+              </div>
+
+              <div>
+                <span>Magasság</span>
+
+                <strong>
+                  {profile?.height != null
+                    ? `${profile.height} cm`
+                    : "Nincs megadva"}
+                </strong>
+              </div>
+
+              <div>
+                <span>Testsúly</span>
+
+                <strong>
+                  {profile?.weight != null
+                    ? `${profile.weight} kg`
+                    : "Nincs megadva"}
+                </strong>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section className="card profile-account-card">
           <h2>Fiók</h2>
 
           <p className="info-text">
-            Itt tudsz kijelentkezni a VolleyMind alkalmazásból.
+            Itt tudsz kijelentkezni a VolleyMind
+            alkalmazásból.
           </p>
 
           <button

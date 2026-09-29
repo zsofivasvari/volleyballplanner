@@ -1,18 +1,46 @@
 import api from "../api/axios";
-import type { CalendarEvent, CreateCalendarEventRequest } from "../types/planner";
+
+import type {
+  CalendarEvent,
+  CreateCalendarEventRequest,
+} from "../types/planner";
 
 export const plannerService = {
   async getAll(): Promise<CalendarEvent[]> {
-    const response = await api.get<CalendarEvent[]>("/CalendarEvents");
+    const response =
+      await api.get<CalendarEvent[]>(
+        "/CalendarEvents"
+      );
+
     return response.data;
   },
 
-  async create(data: CreateCalendarEventRequest): Promise<CalendarEvent> {
-    const response = await api.post<CalendarEvent>("/CalendarEvents", data);
+  async create(
+    data: CreateCalendarEventRequest
+  ): Promise<CalendarEvent> {
+    const response =
+      await api.post<CalendarEvent>(
+        "/CalendarEvents",
+        data
+      );
+
+    return response.data;
+  },
+
+  async createFromTrainingSession(
+    trainingSessionId: number
+  ): Promise<CalendarEvent> {
+    const response =
+      await api.post<CalendarEvent>(
+        `/CalendarEvents/from-training-session/${trainingSessionId}`
+      );
+
     return response.data;
   },
 
   async remove(id: number): Promise<void> {
-    await api.delete(`/CalendarEvents/${id}`);
+    await api.delete(
+      `/CalendarEvents/${id}`
+    );
   },
 };

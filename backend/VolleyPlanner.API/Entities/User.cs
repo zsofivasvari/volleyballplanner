@@ -42,6 +42,9 @@ public class User
     public ICollection<UserSportRole> SportRoles { get; set; }
         = new List<UserSportRole>();
 
+    public ICollection<TrainingBooking> TrainingBookings { get; set; }
+        = new List<TrainingBooking>();
+
     // Technikai jogosultság:
     // User / Admin
     public string Role { get; set; } = "User";

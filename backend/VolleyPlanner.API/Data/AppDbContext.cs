@@ -5,7 +5,8 @@ namespace VolleyPlanner.API.Data;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options)
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options)
         : base(options)
     {
     }
@@ -24,6 +25,7 @@ public class AppDbContext : DbContext
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
 
     public DbSet<TrainingSession> TrainingSessions => Set<TrainingSession>();
+    public DbSet<TrainingBooking> TrainingBookings => Set<TrainingBooking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -47,7 +49,6 @@ public class AppDbContext : DbContext
             .HasForeignKey(usr => usr.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Egy user ugyanazt a sport szerepkört csak egyszer kaphatja meg
         modelBuilder.Entity<UserSportRole>()
             .HasIndex(usr => new
             {
@@ -110,11 +111,30 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.NoAction);
 
         // CalendarEvent - TrainingPlan
+        // Már opcionális kapcsolat.
         modelBuilder.Entity<CalendarEvent>()
             .HasOne(ce => ce.TrainingPlan)
             .WithMany(tp => tp.CalendarEvents)
             .HasForeignKey(ce => ce.TrainingPlanId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // CalendarEvent - TrainingSession
+        modelBuilder.Entity<CalendarEvent>()
+            .HasOne(ce => ce.TrainingSession)
+            .WithMany(ts => ts.CalendarEvents)
+            .HasForeignKey(ce => ce.TrainingSessionId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Ugyanazt a meghirdetett edzést ugyanaz a user
+        // csak egyszer tehesse be a naptárába.
+        modelBuilder.Entity<CalendarEvent>()
+            .HasIndex(ce => new
+            {
+                ce.UserId,
+                ce.TrainingSessionId
+            })
+            .IsUnique()
+            .HasFilter("[TrainingSessionId] IS NOT NULL");
 
         // TrainingSession - Organizer User
         modelBuilder.Entity<TrainingSession>()
@@ -129,5 +149,27 @@ public class AppDbContext : DbContext
             .WithMany(tp => tp.TrainingSessions)
             .HasForeignKey(ts => ts.TrainingPlanId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // TrainingBooking - TrainingSession
+        modelBuilder.Entity<TrainingBooking>()
+            .HasOne(tb => tb.TrainingSession)
+            .WithMany(ts => ts.Bookings)
+            .HasForeignKey(tb => tb.TrainingSessionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // TrainingBooking - User
+        modelBuilder.Entity<TrainingBooking>()
+            .HasOne(tb => tb.User)
+            .WithMany(u => u.TrainingBookings)
+            .HasForeignKey(tb => tb.UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<TrainingBooking>()
+            .HasIndex(tb => new
+            {
+                tb.TrainingSessionId,
+                tb.UserId
+            })
+            .IsUnique();
     }
 }

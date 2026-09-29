@@ -16,6 +16,12 @@ public class TrainingSessionListItemDto
 
     public int MaxParticipants { get; set; }
 
+    public int ParticipantCount { get; set; }
+
+    public int WaitlistCount { get; set; }
+
+    public bool IsFull { get; set; }
+
     public string TargetLevel { get; set; } = string.Empty;
 
     public string Status { get; set; } = string.Empty;
