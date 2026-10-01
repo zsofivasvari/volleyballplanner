@@ -1,14 +1,18 @@
 import api from "../api/axios";
+
 import type {
   LoginRequest,
   LoginResponse,
   RegisterRequest,
   RegisterResponse,
+  UpdateUserProfileRequest,
   UserProfileResponse,
 } from "../types/auth";
 
 export const authService = {
-  async register(data: RegisterRequest): Promise<RegisterResponse> {
+  async register(
+    data: RegisterRequest
+  ): Promise<RegisterResponse> {
     const response = await api.post<RegisterResponse>(
       "/Auth/register",
       data
@@ -17,7 +21,9 @@ export const authService = {
     return response.data;
   },
 
-  async login(data: LoginRequest): Promise<LoginResponse> {
+  async login(
+    data: LoginRequest
+  ): Promise<LoginResponse> {
     const response = await api.post<LoginResponse>(
       "/Auth/login",
       data
@@ -27,7 +33,22 @@ export const authService = {
   },
 
   async getMe(): Promise<UserProfileResponse> {
-    const response = await api.get<UserProfileResponse>("/Auth/me");
+    const response =
+      await api.get<UserProfileResponse>(
+        "/Auth/me"
+      );
+
+    return response.data;
+  },
+
+  async updateMyProfile(
+    data: UpdateUserProfileRequest
+  ): Promise<UserProfileResponse> {
+    const response =
+      await api.put<UserProfileResponse>(
+        "/Auth/me/profile",
+        data
+      );
 
     return response.data;
   },

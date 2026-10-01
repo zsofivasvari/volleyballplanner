@@ -18,6 +18,7 @@ import TrainingSessionsPage from "./pages/TrainingSessionsPage";
 import TrainingSessionDetailsPage from "./pages/TrainingSessionDetailsPage";
 import CreateTrainingSessionPage from "./pages/CreateTrainingSessionPage";
 import MyTrainingSessionsPage from "./pages/MyTrainingSessionsPage";
+import EditTrainingSessionPage from "./pages/EditTrainingSessionPage";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 
@@ -148,6 +149,15 @@ function App() {
           element={
             <ProtectedRoute>
               <MyTrainingSessionsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/trainings/:id/edit"
+          element={
+            <ProtectedRoute>
+              <EditTrainingSessionPage />
             </ProtectedRoute>
           }
         />

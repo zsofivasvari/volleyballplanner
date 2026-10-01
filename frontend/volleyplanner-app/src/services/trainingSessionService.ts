@@ -3,6 +3,7 @@ import api from "../api/axios";
 import type {
   AssignTrainingPlanRequest,
   CreateTrainingSessionRequest,
+  UpdateTrainingSessionRequest,
   TrainingSessionDetails,
   TrainingSessionListItem,
 } from "../types/trainingSession";
@@ -13,24 +14,20 @@ import type {
 } from "../types/trainingBooking";
 
 export const trainingSessionService = {
-  async getAll(): Promise<
-    TrainingSessionListItem[]
-  > {
+  async getAll(): Promise<TrainingSessionListItem[]> {
     const response =
-      await api.get<
-        TrainingSessionListItem[]
-      >("/TrainingSessions");
+      await api.get<TrainingSessionListItem[]>(
+        "/TrainingSessions"
+      );
 
     return response.data;
   },
 
-  async getMine(): Promise<
-    TrainingSessionListItem[]
-  > {
+  async getMine(): Promise<TrainingSessionListItem[]> {
     const response =
-      await api.get<
-        TrainingSessionListItem[]
-      >("/TrainingSessions/mine");
+      await api.get<TrainingSessionListItem[]>(
+        "/TrainingSessions/mine"
+      );
 
     return response.data;
   },
@@ -39,9 +36,9 @@ export const trainingSessionService = {
     id: number
   ): Promise<TrainingSessionDetails> {
     const response =
-      await api.get<
-        TrainingSessionDetails
-      >(`/TrainingSessions/${id}`);
+      await api.get<TrainingSessionDetails>(
+        `/TrainingSessions/${id}`
+      );
 
     return response.data;
   },
@@ -50,14 +47,33 @@ export const trainingSessionService = {
     data: CreateTrainingSessionRequest
   ): Promise<TrainingSessionDetails> {
     const response =
-      await api.post<
-        TrainingSessionDetails
-      >(
+      await api.post<TrainingSessionDetails>(
         "/TrainingSessions",
         data
       );
 
     return response.data;
+  },
+
+  async update(
+    id: number,
+    data: UpdateTrainingSessionRequest
+  ): Promise<TrainingSessionDetails> {
+    const response =
+      await api.put<TrainingSessionDetails>(
+        `/TrainingSessions/${id}`,
+        data
+      );
+
+    return response.data;
+  },
+
+  async delete(
+    id: number
+  ): Promise<void> {
+    await api.delete(
+      `/TrainingSessions/${id}`
+    );
   },
 
   async assignTrainingPlan(
@@ -69,9 +85,7 @@ export const trainingSessionService = {
     };
 
     const response =
-      await api.put<
-        TrainingSessionDetails
-      >(
+      await api.put<TrainingSessionDetails>(
         `/TrainingSessions/${id}/training-plan`,
         data
       );
@@ -110,9 +124,7 @@ export const trainingSessionService = {
     id: number
   ): Promise<TrainingParticipant[]> {
     const response =
-      await api.get<
-        TrainingParticipant[]
-      >(
+      await api.get<TrainingParticipant[]>(
         `/TrainingSessions/${id}/participants`
       );
 

@@ -31,3 +31,19 @@ export interface UserProfileResponse {
   height?: number | null;
   weight?: number | null;
 }
+
+export interface UpdateUserProfileRequest {
+  level?: string | null;
+  goal?: string | null;
+  age?: number | null;
+  height?: number | null;
+  weight?: number | null;
+}
+
+export interface UpdateUserProfileRequest {
+  level?: string | null;
+  goal?: string | null;
+  age?: number | null;
+  height?: number | null;
+  weight?: number | null;
+}

@@ -3,7 +3,10 @@ import axios from "axios";
 import AppLayout from "../components/layout/AppLayout";
 import { authService } from "../services/authService";
 import { sportRoleService } from "../services/sportRoleService";
-import type { UserProfileResponse } from "../types/auth";
+import type {
+  UpdateUserProfileRequest,
+  UserProfileResponse,
+} from "../types/auth";
 import type { SportRolesResponse } from "../types/sportRole";
 
 function ProfilePage() {
@@ -15,8 +18,19 @@ function ProfilePage() {
     isOrganizerCoach: false,
   });
 
+  const [playerProfileForm, setPlayerProfileForm] =
+    useState<UpdateUserProfileRequest>({
+      level: "",
+      goal: "",
+      age: null,
+      height: null,
+      weight: null,
+    });
+
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingRole, setSavingRole] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -33,8 +47,14 @@ function ProfilePage() {
 
         setProfile(profileData);
 
-        // Ha régi adat miatt még mindkét szerep igaz lenne,
-        // a frontend nem tartja meg mindkettőt.
+        setPlayerProfileForm({
+          level: profileData.level ?? "",
+          goal: profileData.goal ?? "",
+          age: profileData.age ?? null,
+          height: profileData.height ?? null,
+          weight: profileData.weight ?? null,
+        });
+
         if (roleData.isOrganizerCoach) {
           setRoles({
             isPlayer: false,
@@ -92,7 +112,7 @@ function ProfilePage() {
     });
   };
 
-  const handleSave = async () => {
+  const handleRoleSave = async () => {
     if (roles.isPlayer === roles.isOrganizerCoach) {
       setError(
         "Pontosan egy sportbeli szerepkört kell kiválasztani."
@@ -102,7 +122,7 @@ function ProfilePage() {
     }
 
     try {
-      setSaving(true);
+      setSavingRole(true);
       setError("");
       setSuccessMessage("");
 
@@ -128,7 +148,132 @@ function ProfilePage() {
         );
       }
     } finally {
-      setSaving(false);
+      setSavingRole(false);
+    }
+  };
+
+  const handlePlayerProfileChange = (
+    field: keyof UpdateUserProfileRequest,
+    value: string
+  ) => {
+    setSuccessMessage("");
+    setError("");
+
+    if (
+      field === "age" ||
+      field === "height" ||
+      field === "weight"
+    ) {
+      setPlayerProfileForm((previous) => ({
+        ...previous,
+        [field]:
+          value.trim() === ""
+            ? null
+            : Number(value),
+      }));
+
+      return;
+    }
+
+    setPlayerProfileForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
+  };
+
+  const validatePlayerProfile = () => {
+    if (
+      playerProfileForm.age != null &&
+      (
+        playerProfileForm.age < 10 ||
+        playerProfileForm.age > 100
+      )
+    ) {
+      setError(
+        "Az életkor 10 és 100 év között lehet."
+      );
+      return false;
+    }
+
+    if (
+      playerProfileForm.height != null &&
+      (
+        playerProfileForm.height < 100 ||
+        playerProfileForm.height > 250
+      )
+    ) {
+      setError(
+        "A magasság 100 és 250 cm között lehet."
+      );
+      return false;
+    }
+
+    if (
+      playerProfileForm.weight != null &&
+      (
+        playerProfileForm.weight < 30 ||
+        playerProfileForm.weight > 250
+      )
+    ) {
+      setError(
+        "A testsúly 30 és 250 kg között lehet."
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const handlePlayerProfileSave = async () => {
+    if (!validatePlayerProfile()) {
+      setSuccessMessage("");
+      return;
+    }
+
+    try {
+      setSavingProfile(true);
+      setError("");
+      setSuccessMessage("");
+
+      const updatedProfile =
+        await authService.updateMyProfile({
+          level:
+            playerProfileForm.level?.trim() || null,
+          goal:
+            playerProfileForm.goal?.trim() || null,
+          age: playerProfileForm.age ?? null,
+          height: playerProfileForm.height ?? null,
+          weight: playerProfileForm.weight ?? null,
+        });
+
+      setProfile(updatedProfile);
+
+      setPlayerProfileForm({
+        level: updatedProfile.level ?? "",
+        goal: updatedProfile.goal ?? "",
+        age: updatedProfile.age ?? null,
+        height: updatedProfile.height ?? null,
+        weight: updatedProfile.weight ?? null,
+      });
+
+      setSuccessMessage(
+        "A játékosprofil sikeresen mentve."
+      );
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setError(
+          err.response?.data?.message ??
+            "Nem sikerült menteni a játékosprofilt."
+        );
+      } else {
+        setError(
+          "Nem sikerült menteni a játékosprofilt."
+        );
+      }
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -240,26 +385,14 @@ function ProfilePage() {
             </button>
           </div>
 
-          {error && (
-            <p className="error-text">
-              {error}
-            </p>
-          )}
-
-          {successMessage && (
-            <p className="success-text">
-              {successMessage}
-            </p>
-          )}
-
           <div className="profile-actions">
             <button
               type="button"
               className="primary-button"
-              onClick={handleSave}
-              disabled={saving}
+              onClick={handleRoleSave}
+              disabled={savingRole}
             >
-              {saving
+              {savingRole
                 ? "Mentés..."
                 : "Szerepkör mentése"}
             </button>
@@ -268,55 +401,180 @@ function ProfilePage() {
 
         {roles.isPlayer && (
           <section className="card profile-details-card">
-            <h2>Játékosprofil</h2>
+            <div className="profile-section-heading">
+              <h2>Játékosprofil</h2>
 
-            <div className="profile-detail-grid">
-              <div>
-                <span>Szint</span>
+              <p>
+                Add meg a sportolói adataidat. Ezek később
+                az edzések és versenyek kezelésénél is
+                használhatók lesznek.
+              </p>
+            </div>
 
-                <strong>
-                  {profile?.level ?? "Nincs megadva"}
-                </strong>
+            <div className="profile-edit-grid">
+              <div className="profile-field">
+                <label htmlFor="profile-level">
+                  Szint
+                </label>
+
+                <select
+                  id="profile-level"
+                  value={playerProfileForm.level ?? ""}
+                  onChange={(event) =>
+                    handlePlayerProfileChange(
+                      "level",
+                      event.target.value
+                    )
+                  }
+                >
+                  <option value="">
+                    Válassz szintet
+                  </option>
+
+                  <option value="Kezdő">
+                    Kezdő
+                  </option>
+
+                  <option value="Középhaladó">
+                    Középhaladó
+                  </option>
+
+                  <option value="Haladó">
+                    Haladó
+                  </option>
+
+                  <option value="Versenyző">
+                    Versenyző
+                  </option>
+                </select>
               </div>
 
-              <div>
-                <span>Cél</span>
+              <div className="profile-field">
+                <label htmlFor="profile-goal">
+                  Cél
+                </label>
 
-                <strong>
-                  {profile?.goal ?? "Nincs megadva"}
-                </strong>
+                <input
+                  id="profile-goal"
+                  type="text"
+                  value={playerProfileForm.goal ?? ""}
+                  onChange={(event) =>
+                    handlePlayerProfileChange(
+                      "goal",
+                      event.target.value
+                    )
+                  }
+                  placeholder="Pl. fejlődés, versenyzés"
+                  maxLength={100}
+                />
               </div>
 
-              <div>
-                <span>Életkor</span>
+              <div className="profile-field">
+                <label htmlFor="profile-age">
+                  Életkor
+                </label>
 
-                <strong>
-                  {profile?.age != null
-                    ? `${profile.age} év`
-                    : "Nincs megadva"}
-                </strong>
+                <div className="profile-input-with-unit">
+                  <input
+                    id="profile-age"
+                    type="number"
+                    min={10}
+                    max={100}
+                    value={playerProfileForm.age ?? ""}
+                    onChange={(event) =>
+                      handlePlayerProfileChange(
+                        "age",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Pl. 25"
+                  />
+
+                  <span>év</span>
+                </div>
               </div>
 
-              <div>
-                <span>Magasság</span>
+              <div className="profile-field">
+                <label htmlFor="profile-height">
+                  Magasság
+                </label>
 
-                <strong>
-                  {profile?.height != null
-                    ? `${profile.height} cm`
-                    : "Nincs megadva"}
-                </strong>
+                <div className="profile-input-with-unit">
+                  <input
+                    id="profile-height"
+                    type="number"
+                    min={100}
+                    max={250}
+                    step="0.1"
+                    value={playerProfileForm.height ?? ""}
+                    onChange={(event) =>
+                      handlePlayerProfileChange(
+                        "height",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Pl. 178"
+                  />
+
+                  <span>cm</span>
+                </div>
               </div>
 
-              <div>
-                <span>Testsúly</span>
+              <div className="profile-field">
+                <label htmlFor="profile-weight">
+                  Testsúly
+                </label>
 
-                <strong>
-                  {profile?.weight != null
-                    ? `${profile.weight} kg`
-                    : "Nincs megadva"}
-                </strong>
+                <div className="profile-input-with-unit">
+                  <input
+                    id="profile-weight"
+                    type="number"
+                    min={30}
+                    max={250}
+                    step="0.1"
+                    value={playerProfileForm.weight ?? ""}
+                    onChange={(event) =>
+                      handlePlayerProfileChange(
+                        "weight",
+                        event.target.value
+                      )
+                    }
+                    placeholder="Pl. 70"
+                  />
+
+                  <span>kg</span>
+                </div>
               </div>
             </div>
+
+            <div className="profile-actions">
+              <button
+                type="button"
+                className="primary-button profile-save-button"
+                onClick={handlePlayerProfileSave}
+                disabled={savingProfile}
+              >
+                {savingProfile
+                  ? "Mentés..."
+                  : "Játékosprofil mentése"}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {error && (
+          <section className="card">
+            <p className="error-text">
+              {error}
+            </p>
+          </section>
+        )}
+
+        {successMessage && (
+          <section className="card">
+            <p className="success-text">
+              {successMessage}
+            </p>
           </section>
         )}
 

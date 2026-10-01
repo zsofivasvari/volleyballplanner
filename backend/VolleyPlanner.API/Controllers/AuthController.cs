@@ -69,6 +69,42 @@ public class AuthController : ControllerBase
         }
     }
 
+    [Authorize]
+    [HttpPut("me/profile")]
+    public async Task<ActionResult<UserProfileResponseDto>> UpdateProfile(
+        UpdateUserProfileRequestDto request)
+    {
+        try
+        {
+            var userIdClaim =
+                User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized(new
+                {
+                    message = "Érvénytelen token."
+                });
+            }
+
+            var userId = int.Parse(userIdClaim);
+
+            var result =
+                await _authService.UpdateCurrentUserProfileAsync(
+                    userId,
+                    request);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
+        }
+    }
+
     [HttpGet("confirm-email")]
     public async Task<IActionResult> ConfirmEmail([FromQuery] string token)
     {

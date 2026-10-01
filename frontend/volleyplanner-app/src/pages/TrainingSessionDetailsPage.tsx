@@ -8,6 +8,7 @@ import axios from "axios";
 
 import {
   Link,
+  useNavigate,
   useParams,
 } from "react-router-dom";
 
@@ -35,6 +36,8 @@ function TrainingSessionDetailsPage() {
   const { id } = useParams();
 
   const sessionId = Number(id);
+
+  const navigate = useNavigate();
 
   const [
     session,
@@ -109,6 +112,12 @@ function TrainingSessionDetailsPage() {
     setCalendarLoading,
   ] =
     useState(false);
+
+  const [
+    deleteLoading,
+    setDeleteLoading,
+  ] =
+  useState(false);
 
   const [
     error,
@@ -516,6 +525,51 @@ function TrainingSessionDetailsPage() {
         setTrainingPlanLoading(
           false
         );
+      }
+    };
+
+  const handleDeleteTrainingSession =
+    async () => {
+      if (!session) {
+        return;
+      }
+
+      const confirmed =
+        window.confirm(
+          `Biztosan törölni szeretnéd a(z) "${session.title}" edzést?\n\nA jelentkezések és a kapcsolódó naptáresemények is törlődnek.`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        setDeleteLoading(true);
+        setError("");
+        setSuccessMessage("");
+
+        await trainingSessionService.delete(
+          sessionId
+        );
+
+        navigate(
+          "/trainings/mine"
+        );
+      } catch (err) {
+        console.error(err);
+
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ??
+              "Nem sikerült törölni az edzést."
+          );
+        } else {
+          setError(
+            "Nem sikerült törölni az edzést."
+          );
+        }
+      } finally {
+        setDeleteLoading(false);
       }
     };
 
@@ -1174,6 +1228,29 @@ function TrainingSessionDetailsPage() {
                   session.waitlistCount
                 }
               </p>
+              {isUpcoming && (
+                <div className="training-organizer-actions">
+                  <Link
+                    to={`/trainings/${session.id}/edit`}
+                    className="primary-button"
+                  >
+                    Szerkesztés
+                  </Link>
+
+                  <button
+                    type="button"
+                    className="danger-button"
+                    onClick={
+                      handleDeleteTrainingSession
+                    }
+                    disabled={deleteLoading}
+                  >
+                    {deleteLoading
+                      ? "Törlés..."
+                      : "Edzés törlése"}
+                  </button>
+                </div>
+              )}
             </>
           ) : isPlayer ? (
             <>

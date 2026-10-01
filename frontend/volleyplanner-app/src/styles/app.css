@@ -3864,3 +3864,157 @@ body {
     width: 100%;
   }
 }
+
+/* ===== Player profile editing ===== */
+
+.profile-details-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+}
+
+.profile-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.profile-field label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #24324a;
+}
+
+.profile-field input,
+.profile-field select {
+  width: 100%;
+  min-height: 46px;
+  box-sizing: border-box;
+
+  padding: 0.72rem 0.85rem;
+
+  border: 1px solid #d9deea;
+  border-radius: 12px;
+
+  background: #ffffff;
+  color: #1d2940;
+
+  font-size: 0.95rem;
+  line-height: 1.2;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.profile-field input::placeholder {
+  color: #9aa4b5;
+}
+
+.profile-field input:focus,
+.profile-field select:focus {
+  border-color: #f3c94d;
+  box-shadow: 0 0 0 3px rgba(243, 201, 77, 0.18);
+}
+
+.profile-input-with-unit {
+  position: relative;
+}
+
+.profile-input-with-unit input {
+  padding-right: 3.2rem;
+}
+
+.profile-input-with-unit span {
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+
+  transform: translateY(-50%);
+
+  color: #7c8798;
+  font-size: 0.85rem;
+  font-weight: 600;
+
+  pointer-events: none;
+}
+
+.profile-save-button {
+  min-width: 220px;
+}
+
+@media (max-width: 700px) {
+  .profile-edit-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .profile-details-card {
+    gap: 1.1rem;
+  }
+
+  .profile-field input,
+  .profile-field select {
+    min-height: 48px;
+    font-size: 1rem;
+  }
+
+  .profile-actions {
+    width: 100%;
+  }
+
+  .profile-save-button {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* ===== Edzés részletek / szerkesztés gombok javítása ===== */
+
+.training-organizer-actions,
+.training-edit-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.training-organizer-actions .primary-button,
+.training-organizer-actions .secondary-button,
+.training-organizer-actions .danger-button,
+.training-edit-actions .primary-button,
+.training-edit-actions .secondary-button,
+.training-edit-actions .danger-button {
+  width: 100%;
+  margin: 0;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 48px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.training-organizer-actions .danger-button,
+.training-edit-actions .danger-button {
+  white-space: nowrap;
+}
+
+@media (min-width: 720px) {
+  .training-edit-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .training-organizer-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}

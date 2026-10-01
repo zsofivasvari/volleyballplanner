@@ -38,7 +38,7 @@ public class User
         = new List<TrainingSession>();
 
     // Sportbeli szerepkörök:
-    // Player és/vagy OrganizerCoach
+    // Player vagy OrganizerCoach
     public ICollection<UserSportRole> SportRoles { get; set; }
         = new List<UserSportRole>();
 

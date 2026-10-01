@@ -183,6 +183,15 @@ public class TrainingSessionsController : ControllerBase
             });
         }
 
+        if (request.StartTime <= DateTime.UtcNow)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Az edzés kezdési időpontjának a jövőben kell lennie."
+            });
+        }
+
         if (request.EndTime <= request.StartTime)
         {
             return BadRequest(new
@@ -294,6 +303,327 @@ public class TrainingSessionsController : ControllerBase
             new { id = result.Id },
             result
         );
+
+        
+    }
+
+    // =========================================================
+    // EDZÉS SZERKESZTÉSE
+    // =========================================================
+
+    [HttpPut("{id}")]
+    public async Task<ActionResult<TrainingSessionDetailsDto>> Update(
+        int id,
+        UpdateTrainingSessionRequestDto request)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        var isOrganizerCoach =
+            await _context.UserSportRoles
+                .AnyAsync(usr =>
+                    usr.UserId == userId.Value &&
+                    usr.RoleType == SportRoleType.OrganizerCoach);
+
+        if (!isOrganizerCoach)
+        {
+            return Forbid();
+        }
+
+        var trainingSession =
+            await _context.TrainingSessions
+                .Include(ts => ts.TrainingPlan)
+                .FirstOrDefaultAsync(ts => ts.Id == id);
+
+        if (trainingSession == null)
+        {
+            return NotFound(new
+            {
+                message = "Az edzés nem található."
+            });
+        }
+
+        if (trainingSession.OrganizerUserId != userId.Value)
+        {
+            return Forbid();
+        }
+
+        if (trainingSession.StartTime <= DateTime.UtcNow)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Már megkezdődött vagy lezajlott edzés nem szerkeszthető."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return BadRequest(new
+            {
+                message = "Az edzés címe kötelező."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Location))
+        {
+            return BadRequest(new
+            {
+                message = "A helyszín megadása kötelező."
+            });
+        }
+
+        if (request.StartTime <= DateTime.UtcNow)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Az edzés kezdési időpontjának a jövőben kell lennie."
+            });
+        }
+
+        if (request.EndTime <= request.StartTime)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "A befejezési időnek későbbinek kell lennie, mint a kezdési idő."
+            });
+        }
+
+        if (request.MaxParticipants <= 0)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "A maximális létszámnak pozitív értéknek kell lennie."
+            });
+        }
+
+        if (!Enum.TryParse<SportType>(
+                request.SportType,
+                true,
+                out var sportType))
+        {
+            return BadRequest(new
+            {
+                message = "Érvénytelen sportág."
+            });
+        }
+
+        var confirmedParticipantCount =
+            await _context.TrainingBookings
+                .CountAsync(tb =>
+                    tb.TrainingSessionId == id &&
+                    tb.Status == "Confirmed");
+
+        if (request.MaxParticipants < confirmedParticipantCount)
+        {
+            return BadRequest(new
+            {
+                message =
+                    $"A maximális létszám nem lehet kisebb a már elfogadott résztvevők számánál ({confirmedParticipantCount})."
+            });
+        }
+
+        /*
+        * Ha van az edzéshez edzésterv rendelve, akkor az új
+        * sportágnak és időtartamnak továbbra is kompatibilisnek
+        * kell lennie vele.
+        */
+        if (trainingSession.TrainingPlan != null)
+        {
+            if (trainingSession.TrainingPlan.SportType != sportType)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        "A sportág nem módosítható erre az értékre, mert a hozzárendelt edzésterv más sportághoz tartozik. Előbb válaszd le az edzéstervet."
+                });
+            }
+
+            var newDuration =
+                (int)(request.EndTime - request.StartTime)
+                    .TotalMinutes;
+
+            if (trainingSession.TrainingPlan.TargetDuration !=
+                newDuration)
+            {
+                return BadRequest(new
+                {
+                    message =
+                        $"Az új időtartam ({newDuration} perc) nem egyezik a hozzárendelt edzésterv időtartamával ({trainingSession.TrainingPlan.TargetDuration} perc). Előbb válaszd le vagy cseréld le az edzéstervet."
+                });
+            }
+        }
+
+        trainingSession.Title =
+            request.Title.Trim();
+
+        trainingSession.Description =
+            request.Description?.Trim() ?? string.Empty;
+
+        trainingSession.SportType =
+            sportType;
+
+        trainingSession.StartTime =
+            request.StartTime;
+
+        trainingSession.EndTime =
+            request.EndTime;
+
+        trainingSession.Location =
+            request.Location.Trim();
+
+        trainingSession.MaxParticipants =
+            request.MaxParticipants;
+
+        trainingSession.TargetLevel =
+            request.TargetLevel?.Trim() ?? string.Empty;
+
+        /*
+        * Ha az edzés már bekerült felhasználók heti
+        * tervezőjébe, az ottani eseményt is frissítjük.
+        */
+        var relatedCalendarEvents =
+            await _context.CalendarEvents
+                .Where(ce =>
+                    ce.TrainingSessionId == id)
+                .ToListAsync();
+
+        foreach (var calendarEvent in relatedCalendarEvents)
+        {
+            calendarEvent.Title =
+                trainingSession.Title;
+
+            calendarEvent.SportType =
+                trainingSession.SportType;
+
+            calendarEvent.StartTime =
+                trainingSession.StartTime;
+
+            calendarEvent.EndTime =
+                trainingSession.EndTime;
+        }
+
+        await _context.SaveChangesAsync();
+
+        var result =
+            await GetTrainingSessionDetailsAsync(
+                id,
+                userId.Value);
+
+        if (result == null)
+        {
+            return StatusCode(500, new
+            {
+                message =
+                    "Az edzés módosult, de az adatok visszaolvasása nem sikerült."
+            });
+        }
+
+        return Ok(result);
+    }
+
+    // =========================================================
+    // EDZÉS TÖRLÉSE
+    // =========================================================
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(
+        int id)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
+        {
+            return Unauthorized();
+        }
+
+        var isOrganizerCoach =
+            await _context.UserSportRoles
+                .AnyAsync(usr =>
+                    usr.UserId == userId.Value &&
+                    usr.RoleType == SportRoleType.OrganizerCoach);
+
+        if (!isOrganizerCoach)
+        {
+            return Forbid();
+        }
+
+        var trainingSession =
+            await _context.TrainingSessions
+                .FirstOrDefaultAsync(ts =>
+                    ts.Id == id);
+
+        if (trainingSession == null)
+        {
+            return NotFound(new
+            {
+                message = "Az edzés nem található."
+            });
+        }
+
+        if (trainingSession.OrganizerUserId !=
+            userId.Value)
+        {
+            return Forbid();
+        }
+
+        if (trainingSession.StartTime <=
+            DateTime.UtcNow)
+        {
+            return BadRequest(new
+            {
+                message =
+                    "Már megkezdődött vagy lezajlott edzés nem törölhető."
+            });
+        }
+
+        /*
+        * Az edzéshez tartozó naptáreseményeket eltávolítjuk.
+        *
+        * Ha egy meghirdetett edzés megszűnik, annak nincs
+        * értelme továbbra is szerepelnie a résztvevők
+        * heti tervezőjében.
+        */
+        var relatedCalendarEvents =
+            await _context.CalendarEvents
+                .Where(ce =>
+                    ce.TrainingSessionId == id)
+                .ToListAsync();
+
+        if (relatedCalendarEvents.Count > 0)
+        {
+            _context.CalendarEvents.RemoveRange(
+                relatedCalendarEvents);
+        }
+
+        /*
+        * Jelentkezések és várólistás bejegyzések törlése.
+        */
+        var relatedBookings =
+            await _context.TrainingBookings
+                .Where(tb =>
+                    tb.TrainingSessionId == id)
+                .ToListAsync();
+
+        if (relatedBookings.Count > 0)
+        {
+            _context.TrainingBookings.RemoveRange(
+                relatedBookings);
+        }
+
+        _context.TrainingSessions.Remove(
+            trainingSession);
+
+        await _context.SaveChangesAsync();
+
+        return NoContent();
     }
 
     // =========================================================
@@ -881,9 +1211,12 @@ public class TrainingSessionsController : ControllerBase
                             ts.OrganizerUser.Name,
 
                         TrainingPlanId =
-                            ts.TrainingPlanId,
+                            ts.OrganizerUserId == currentUserId
+                                ? ts.TrainingPlanId
+                                : null,
 
                         TrainingPlanTitle =
+                            ts.OrganizerUserId == currentUserId &&
                             ts.TrainingPlan != null
                                 ? ts.TrainingPlan.Title
                                 : null,

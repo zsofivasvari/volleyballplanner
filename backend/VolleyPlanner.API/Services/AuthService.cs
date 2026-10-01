@@ -185,6 +185,73 @@ public class AuthService : IAuthService
         };
     }
 
+    public async Task<UserProfileResponseDto> UpdateCurrentUserProfileAsync(
+    int userId,
+    UpdateUserProfileRequestDto request)
+    {
+        var user = await _context.Users
+            .Include(u => u.Profile)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+        {
+            throw new Exception("A felhasználó nem található.");
+        }
+
+        if (request.Age is < 10 or > 100)
+        {
+            throw new Exception("Az életkor 10 és 100 év között lehet.");
+        }
+
+        if (request.Height is < 100 or > 250)
+        {
+            throw new Exception("A magasság 100 és 250 cm között lehet.");
+        }
+
+        if (request.Weight is < 30 or > 250)
+        {
+            throw new Exception("A testsúly 30 és 250 kg között lehet.");
+        }
+
+        if (user.Profile == null)
+        {
+            user.Profile = new UserProfile
+            {
+                UserId = user.Id
+            };
+
+            _context.UserProfiles.Add(user.Profile);
+        }
+
+        user.Profile.Level =
+            string.IsNullOrWhiteSpace(request.Level)
+                ? null
+                : request.Level.Trim();
+
+        user.Profile.Goal =
+            string.IsNullOrWhiteSpace(request.Goal)
+                ? null
+                : request.Goal.Trim();
+
+        user.Profile.Age = request.Age;
+        user.Profile.Height = request.Height;
+        user.Profile.Weight = request.Weight;
+
+        await _context.SaveChangesAsync();
+
+        return new UserProfileResponseDto
+        {
+            UserId = user.Id,
+            Name = user.Name,
+            Email = user.Email,
+            Level = user.Profile.Level,
+            Goal = user.Profile.Goal,
+            Age = user.Profile.Age,
+            Height = user.Profile.Height,
+            Weight = user.Profile.Weight
+        };
+    }
+
     public async Task<bool> ConfirmEmailAsync(string token)
     {
         var user = await _context.Users

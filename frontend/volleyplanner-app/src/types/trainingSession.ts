@@ -71,6 +71,21 @@ export interface CreateTrainingSessionRequest {
   targetLevel: string;
 }
 
+export interface UpdateTrainingSessionRequest {
+  title: string;
+  description: string;
+  sportType: string;
+
+  startTime: string;
+  endTime: string;
+
+  location: string;
+
+  maxParticipants: number;
+
+  targetLevel: string;
+}
+
 export interface AssignTrainingPlanRequest {
   trainingPlanId: number;
 }
