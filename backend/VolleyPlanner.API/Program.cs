@@ -61,6 +61,15 @@ builder.Services.AddScoped<IGenerationService, GenerationService>();
 // Sportbeli szerepkörök kezelése
 builder.Services.AddScoped<ISportRoleService, SportRoleService>();
 
+// Játékos keresés és későbbi partnerkezelés
+builder.Services.AddScoped<IPlayerService, PlayerService>();
+
+builder.Services.AddScoped<ITournamentService, TournamentService>();
+
+builder.Services.AddScoped<
+    ITeamInvitationService,
+    TeamInvitationService>();
+
 builder.Services.Configure<EmailSettings>(
     builder.Configuration.GetSection("EmailSettings"));
 

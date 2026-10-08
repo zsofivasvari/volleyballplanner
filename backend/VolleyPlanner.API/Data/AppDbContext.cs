@@ -26,6 +26,14 @@ public class AppDbContext : DbContext
 
     public DbSet<TrainingSession> TrainingSessions => Set<TrainingSession>();
     public DbSet<TrainingBooking> TrainingBookings => Set<TrainingBooking>();
+    public DbSet<Tournament> Tournaments => Set<Tournament>();
+    public DbSet<Team> Teams => Set<Team>();
+    public DbSet<TeamInvitation> TeamInvitations => Set<TeamInvitation>();
+    public DbSet<TournamentEntry> TournamentEntries => Set<TournamentEntry>();
+    public DbSet<TournamentPool> TournamentPools => Set<TournamentPool>();
+    public DbSet<TournamentPoolSlot> TournamentPoolSlots => Set<TournamentPoolSlot>();
+    public DbSet<TournamentMatch> TournamentMatches => Set<TournamentMatch>();
+    public DbSet<TournamentMatchSet> TournamentMatchSets => Set<TournamentMatchSet>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +43,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>()
             .HasIndex(u => u.Email)
             .IsUnique();
+
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.PlayerCode)
+            .IsUnique()
+            .HasFilter("[PlayerCode] IS NOT NULL");
 
         // User - UserProfile 1:1 kapcsolat
         modelBuilder.Entity<User>()
@@ -169,6 +182,202 @@ public class AppDbContext : DbContext
             {
                 tb.TrainingSessionId,
                 tb.UserId
+            })
+            .IsUnique();
+
+        // ===============================
+        // TOURNAMENT MODULE
+        // ===============================
+
+        // Tournament - Organizer
+        modelBuilder.Entity<Tournament>()
+            .HasOne(t => t.OrganizerUser)
+            .WithMany(u => u.OrganizedTournaments)
+            .HasForeignKey(t => t.OrganizerUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Team - Player1
+        modelBuilder.Entity<Team>()
+            .HasOne(t => t.Player1User)
+            .WithMany(u => u.TeamsAsPlayer1)
+            .HasForeignKey(t => t.Player1UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Team - Player2
+        modelBuilder.Entity<Team>()
+            .HasOne(t => t.Player2User)
+            .WithMany(u => u.TeamsAsPlayer2)
+            .HasForeignKey(t => t.Player2UserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Ugyanaz a játékos nem lehet saját maga csapattársa.
+        modelBuilder.Entity<Team>()
+            .ToTable(t => t.HasCheckConstraint(
+                "CK_Team_DifferentPlayers",
+                "[Player1UserId] <> [Player2UserId]"
+            ));
+
+        // TeamInvitation - Tournament
+        modelBuilder.Entity<TeamInvitation>()
+            .HasOne(ti => ti.Tournament)
+            .WithMany(t => t.TeamInvitations)
+            .HasForeignKey(ti => ti.TournamentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // TeamInvitation - Inviter
+        modelBuilder.Entity<TeamInvitation>()
+            .HasOne(ti => ti.InviterUser)
+            .WithMany(u => u.SentTeamInvitations)
+            .HasForeignKey(ti => ti.InviterUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // TeamInvitation - Invited
+        modelBuilder.Entity<TeamInvitation>()
+            .HasOne(ti => ti.InvitedUser)
+            .WithMany(u => u.ReceivedTeamInvitations)
+            .HasForeignKey(ti => ti.InvitedUserId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // TournamentEntry - Tournament
+        modelBuilder.Entity<TournamentEntry>()
+            .HasOne(te => te.Tournament)
+            .WithMany(t => t.Entries)
+            .HasForeignKey(te => te.TournamentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // TournamentEntry - Team
+        modelBuilder.Entity<TournamentEntry>()
+            .HasOne(te => te.Team)
+            .WithMany(t => t.TournamentEntries)
+            .HasForeignKey(te => te.TeamId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Ugyanaz a Team ugyanarra a versenyre csak egyszer nevezhet.
+        modelBuilder.Entity<TournamentEntry>()
+            .HasIndex(te => new
+            {
+                te.TournamentId,
+                te.TeamId
+            })
+            .IsUnique();
+
+        // TournamentPool - Tournament
+        modelBuilder.Entity<TournamentPool>()
+            .HasOne(tp => tp.Tournament)
+            .WithMany(t => t.Pools)
+            .HasForeignKey(tp => tp.TournamentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Egy versenyen belül ne lehessen két A / B / stb. pool.
+        modelBuilder.Entity<TournamentPool>()
+            .HasIndex(tp => new
+            {
+                tp.TournamentId,
+                tp.PoolNumber
+            })
+            .IsUnique();
+
+        // TournamentPoolSlot - Pool
+        modelBuilder.Entity<TournamentPoolSlot>()
+            .HasOne(ps => ps.TournamentPool)
+            .WithMany(p => p.Slots)
+            .HasForeignKey(ps => ps.TournamentPoolId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // TournamentPoolSlot - Entry
+        modelBuilder.Entity<TournamentPoolSlot>()
+            .HasOne(ps => ps.TournamentEntry)
+            .WithMany(e => e.PoolSlots)
+            .HasForeignKey(ps => ps.TournamentEntryId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Egy csoportban minden slot csak egyszer szerepelhet.
+        modelBuilder.Entity<TournamentPoolSlot>()
+            .HasIndex(ps => new
+            {
+                ps.TournamentPoolId,
+                ps.SlotNumber
+            })
+            .IsUnique();
+
+        // TournamentMatch - Tournament
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.Tournament)
+            .WithMany(t => t.Matches)
+            .HasForeignKey(tm => tm.TournamentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // TournamentMatch - Pool
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.TournamentPool)
+            .WithMany(p => p.Matches)
+            .HasForeignKey(tm => tm.TournamentPoolId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Team1
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.Team1Entry)
+            .WithMany(e => e.MatchesAsTeam1)
+            .HasForeignKey(tm => tm.Team1EntryId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Team2
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.Team2Entry)
+            .WithMany(e => e.MatchesAsTeam2)
+            .HasForeignKey(tm => tm.Team2EntryId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Winner
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.WinnerEntry)
+            .WithMany()
+            .HasForeignKey(tm => tm.WinnerEntryId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Loser
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.LoserEntry)
+            .WithMany()
+            .HasForeignKey(tm => tm.LoserEntryId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Team1 source match
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.Team1SourceMatch)
+            .WithMany()
+            .HasForeignKey(tm => tm.Team1SourceMatchId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Team2 source match
+        modelBuilder.Entity<TournamentMatch>()
+            .HasOne(tm => tm.Team2SourceMatch)
+            .WithMany()
+            .HasForeignKey(tm => tm.Team2SourceMatchId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Egy Tournamentben minden match number legyen egyedi.
+        modelBuilder.Entity<TournamentMatch>()
+            .HasIndex(tm => new
+            {
+                tm.TournamentId,
+                tm.MatchNumber
+            })
+            .IsUnique();
+
+        // TournamentMatchSet - Match
+        modelBuilder.Entity<TournamentMatchSet>()
+            .HasOne(ms => ms.TournamentMatch)
+            .WithMany(tm => tm.Sets)
+            .HasForeignKey(ms => ms.TournamentMatchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Egy meccsen belül egy adott szettszám csak egyszer lehet.
+        modelBuilder.Entity<TournamentMatchSet>()
+            .HasIndex(ms => new
+            {
+                ms.TournamentMatchId,
+                ms.SetNumber
             })
             .IsUnique();
     }

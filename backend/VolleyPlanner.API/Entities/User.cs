@@ -45,6 +45,23 @@ public class User
     public ICollection<TrainingBooking> TrainingBookings { get; set; }
         = new List<TrainingBooking>();
 
+    public ICollection<Tournament> OrganizedTournaments { get; set; }
+        = new List<Tournament>();
+
+    public ICollection<Team> TeamsAsPlayer1 { get; set; }
+        = new List<Team>();
+
+    public ICollection<Team> TeamsAsPlayer2 { get; set; }
+        = new List<Team>();
+
+    public ICollection<TeamInvitation> SentTeamInvitations { get; set; }
+        = new List<TeamInvitation>();
+
+    public ICollection<TeamInvitation> ReceivedTeamInvitations { get; set; }
+        = new List<TeamInvitation>();
+
+    public string? PlayerCode { get; set; }
+
     // Technikai jogosultság:
     // User / Admin
     public string Role { get; set; } = "User";

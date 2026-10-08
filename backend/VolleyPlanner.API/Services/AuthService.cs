@@ -39,6 +39,10 @@ public class AuthService : IAuthService
 
         var emailConfirmationToken = Guid.NewGuid().ToString();
 
+        var playerCode =
+        await GenerateUniquePlayerCodeAsync(
+            request.Name);
+
         var user = new User
         {
             Name = request.Name,
@@ -46,7 +50,8 @@ public class AuthService : IAuthService
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             IsEmailConfirmed = false,
             EmailConfirmationToken = emailConfirmationToken,
-            EmailConfirmationTokenExpiresAt = DateTime.UtcNow.AddHours(24)
+            EmailConfirmationTokenExpiresAt = DateTime.UtcNow.AddHours(24),
+            PlayerCode = playerCode
         };
 
         var frontendBaseUrl =
@@ -83,7 +88,8 @@ public class AuthService : IAuthService
         {
             UserId = user.Id,
             Name = user.Name,
-            Email = user.Email
+            Email = user.Email,
+            PlayerCode = user.PlayerCode!
         };
     }
 
@@ -172,11 +178,22 @@ public class AuthService : IAuthService
             throw new Exception("A felhasználó nem található.");
         }
 
+        if (string.IsNullOrWhiteSpace(
+                user.PlayerCode))
+        {
+            user.PlayerCode =
+                await GenerateUniquePlayerCodeAsync(
+                    user.Name);
+
+            await _context.SaveChangesAsync();
+        }
+
         return new UserProfileResponseDto
         {
             UserId = user.Id,
             Name = user.Name,
             Email = user.Email,
+            PlayerCode = user.PlayerCode,
             Level = user.Profile?.Level,
             Goal = user.Profile?.Goal,
             Age = user.Profile?.Age,
@@ -196,6 +213,13 @@ public class AuthService : IAuthService
         if (user == null)
         {
             throw new Exception("A felhasználó nem található.");
+        }
+
+        if (string.IsNullOrWhiteSpace(user.PlayerCode))
+        {
+            user.PlayerCode =
+                await GenerateUniquePlayerCodeAsync(
+                    user.Name);
         }
 
         if (request.Age is < 10 or > 100)
@@ -244,6 +268,7 @@ public class AuthService : IAuthService
             UserId = user.Id,
             Name = user.Name,
             Email = user.Email,
+            PlayerCode = user.PlayerCode,
             Level = user.Profile.Level,
             Goal = user.Profile.Goal,
             Age = user.Profile.Age,
@@ -333,5 +358,40 @@ public class AuthService : IAuthService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+
+    private async Task<string> GenerateUniquePlayerCodeAsync(
+    string name)
+    {
+        var cleanName = new string(
+            name
+                .ToUpperInvariant()
+                .Where(char.IsLetterOrDigit)
+                .Take(4)
+                .ToArray());
+
+        if (string.IsNullOrWhiteSpace(cleanName))
+        {
+            cleanName = "PLAY";
+        }
+
+        while (true)
+        {
+            var number = Random.Shared.Next(
+                1000,
+                10000);
+
+            var playerCode =
+                $"{cleanName}-{number}";
+
+            var exists = await _context.Users
+                .AnyAsync(
+                    u => u.PlayerCode == playerCode);
+
+            if (!exists)
+            {
+                return playerCode;
+            }
+        }
     }
 }

@@ -5,6 +5,7 @@ public class UserProfileResponseDto
     public int UserId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? PlayerCode { get; set; }
     public string? Level { get; set; }
     public string? Goal { get; set; }
     public int? Age { get; set; }
