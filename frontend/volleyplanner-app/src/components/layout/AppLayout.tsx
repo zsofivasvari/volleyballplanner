@@ -66,7 +66,8 @@ function AppLayout({
   const isMoreSectionActive =
     location.pathname.startsWith("/plans") ||
     location.pathname.startsWith("/statistics") ||
-    location.pathname.startsWith("/profile");
+    location.pathname.startsWith("/profile") ||
+    location.pathname.startsWith("/tournaments");
 
   return (
     <div className="app-shell">
@@ -113,6 +114,13 @@ function AppLayout({
               className="app-nav-link"
             >
               Tervező
+            </NavLink>
+
+            <NavLink
+              to="/tournaments"
+              className="app-nav-link"
+            >
+              Versenyek
             </NavLink>
 
             <NavLink
@@ -289,10 +297,10 @@ function AppLayout({
 
               <div className="mobile-more-divider" />
 
-              <button
-                type="button"
-                className="mobile-more-item mobile-more-item-disabled"
-                disabled
+              <NavLink
+                to="/tournaments"
+                className="mobile-more-item"
+                onClick={closeMoreMenu}
               >
                 <span className="mobile-more-icon">
                   🏆
@@ -308,10 +316,10 @@ function AppLayout({
                   </small>
                 </div>
 
-                <span className="mobile-coming-soon">
-                  Hamarosan
+                <span className="mobile-more-arrow">
+                  ›
                 </span>
-              </button>
+              </NavLink>
 
               <button
                 type="button"

@@ -19,6 +19,8 @@ import TrainingSessionDetailsPage from "./pages/TrainingSessionDetailsPage";
 import CreateTrainingSessionPage from "./pages/CreateTrainingSessionPage";
 import MyTrainingSessionsPage from "./pages/MyTrainingSessionsPage";
 import EditTrainingSessionPage from "./pages/EditTrainingSessionPage";
+import TournamentsPage from "./pages/TournamentsPage";
+import TournamentDetailsPage from "./pages/TournamentDetailsPage";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 
@@ -170,7 +172,25 @@ function App() {
             </ProtectedRoute>
           }
         />
-      </Routes>
+
+        <Route
+          path="/tournaments"
+          element={
+            <ProtectedRoute>
+              <TournamentsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tournaments/:id"
+          element={
+            <ProtectedRoute>
+              <TournamentDetailsPage />
+            </ProtectedRoute>
+          }
+        />
+        </Routes>
     </BrowserRouter>
   );
 }

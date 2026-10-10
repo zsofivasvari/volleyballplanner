@@ -868,6 +868,12 @@ public class TournamentService : ITournamentService
                             ? m.Team2Entry.Team.Name
                             : null,
 
+                    Team1SourceMatchId =
+                        m.Team1SourceMatchId,
+
+                    Team2SourceMatchId =
+                        m.Team2SourceMatchId,
+
                     Team1SourceLabel =
                         BuildSourceLabel(
                             m.Team1SourceType,
@@ -1677,7 +1683,7 @@ public class TournamentService : ITournamentService
             return;
         }
 
-        var poolMatchesCompleted =
+        var poolMatches =
             await _context.TournamentMatches
                 .Where(m =>
                     m.TournamentId == tournamentId &&
@@ -1686,22 +1692,15 @@ public class TournamentService : ITournamentService
                         m.Stage == TournamentMatchStage.PoolWinners ||
                         m.Stage == TournamentMatchStage.PoolLosers
                     ))
-                .AllAsync(m =>
-                    m.Status ==
-                        TournamentMatchStatus.Completed);
+                .ToListAsync();
 
-        var poolMatchCount =
-            await _context.TournamentMatches
-                .CountAsync(m =>
-                    m.TournamentId == tournamentId &&
-                    (
-                        m.Stage == TournamentMatchStage.PoolOpening ||
-                        m.Stage == TournamentMatchStage.PoolWinners ||
-                        m.Stage == TournamentMatchStage.PoolLosers
-                    ));
+        if (poolMatches.Count != 16)
+        {
+            return;
+        }
 
-        if (poolMatchCount != 16 ||
-            !poolMatchesCompleted)
+        if (poolMatches.Any(m =>
+            m.Status != TournamentMatchStatus.Completed))
         {
             return;
         }
@@ -1712,62 +1711,96 @@ public class TournamentService : ITournamentService
                 .Where(s =>
                     s.TournamentPool.TournamentId ==
                         tournamentId &&
-                    s.TournamentEntryId.HasValue &&
-                    s.FinalRank.HasValue)
+                    s.TournamentEntryId != null &&
+                    s.FinalRank != null)
                 .ToListAsync();
 
         var firstPlaces =
             poolSlots
-                .Where(s =>
-                    s.FinalRank == 1)
-                .OrderBy(s =>
-                    s.TournamentPool.PoolNumber)
+                .Where(s => s.FinalRank == 1)
                 .ToList();
 
         var secondPlaces =
             poolSlots
-                .Where(s =>
-                    s.FinalRank == 2)
+                .Where(s => s.FinalRank == 2)
                 .ToList();
 
         var thirdPlaces =
             poolSlots
-                .Where(s =>
-                    s.FinalRank == 3)
+                .Where(s => s.FinalRank == 3)
                 .ToList();
 
-        if (firstPlaces.Count != 4 ||
+        if (
+            firstPlaces.Count != 4 ||
             secondPlaces.Count != 4 ||
             thirdPlaces.Count != 4)
         {
             throw new Exception(
-                "A csoporteredmények nem teljesek, ezért a kieséses szakasz nem generálható.");
+                "A kieséses szakasz generálásához " +
+                "négy csoport 1., 2. és 3. helyezettje szükséges.");
         }
-
-        Shuffle(secondPlaces);
-        Shuffle(thirdPlaces);
-        Shuffle(firstPlaces);
 
         var lastMatchNumber =
             await _context.TournamentMatches
                 .Where(m =>
                     m.TournamentId == tournamentId)
-                .MaxAsync(m =>
-                    m.MatchNumber);
+                .MaxAsync(m => m.MatchNumber);
 
         var nextMatchNumber =
             lastMatchNumber + 1;
 
+        // -------------------------------------------------
+        // 1. ROUND OF 12 SORSOLÁS
+        //
+        // Második helyezett vs harmadik helyezett.
+        // Azonos csoportból nem kerülhetnek össze.
+        // -------------------------------------------------
+
+        Shuffle(secondPlaces);
+
+        List<TournamentPoolSlot> shuffledThirdPlaces;
+
+        var roundOf12PairingFound = false;
+
+        do
+        {
+            shuffledThirdPlaces =
+                thirdPlaces.ToList();
+
+            Shuffle(shuffledThirdPlaces);
+
+            roundOf12PairingFound = true;
+
+            for (var i = 0; i < 4; i++)
+            {
+                if (
+                    secondPlaces[i].TournamentPoolId ==
+                    shuffledThirdPlaces[i].TournamentPoolId)
+                {
+                    roundOf12PairingFound = false;
+                    break;
+                }
+            }
+        }
+        while (!roundOf12PairingFound);
+
         var roundOf12Matches =
             new List<TournamentMatch>();
 
+        var roundOf12Branches =
+            new List<(
+                TournamentMatch Match,
+                int FirstSourcePoolId,
+                int SecondSourcePoolId
+            )>();
+
         for (var i = 0; i < 4; i++)
         {
-            var secondEntryId =
-                secondPlaces[i].TournamentEntryId!.Value;
+            var secondPlace =
+                secondPlaces[i];
 
-            var thirdEntryId =
-                thirdPlaces[i].TournamentEntryId!.Value;
+            var thirdPlace =
+                shuffledThirdPlaces[i];
 
             var match =
                 new TournamentMatch
@@ -1775,59 +1808,123 @@ public class TournamentService : ITournamentService
                     TournamentId =
                         tournamentId,
 
-                    TournamentPoolId =
-                        null,
-
                     MatchNumber =
                         nextMatchNumber++,
 
                     Stage =
                         TournamentMatchStage.RoundOf12,
 
+                    Status =
+                        TournamentMatchStatus.Ready,
+
                     Team1EntryId =
-                        secondEntryId,
+                        secondPlace.TournamentEntryId,
 
                     Team2EntryId =
-                        thirdEntryId,
+                        thirdPlace.TournamentEntryId,
 
                     Team1SourceType =
                         MatchParticipantSourceType.DirectTeam,
 
                     Team2SourceType =
-                        MatchParticipantSourceType.DirectTeam,
-
-                    Status =
-                        TournamentMatchStatus.Ready
+                        MatchParticipantSourceType.DirectTeam
                 };
 
             roundOf12Matches.Add(match);
 
-            _context.TournamentMatches.Add(match);
+            roundOf12Branches.Add(
+                (
+                    match,
+                    secondPlace.TournamentPoolId,
+                    thirdPlace.TournamentPoolId
+                )
+            );
         }
+
+        _context.TournamentMatches.AddRange(
+            roundOf12Matches);
 
         await _context.SaveChangesAsync();
 
-        Shuffle(roundOf12Matches);
+       // -------------------------------------------------
+        // 2. CSOPORTELSŐK HOZZÁRENDELÉSE
+        //
+        // Egy csoportelső nem kerülhet olyan
+        // negyeddöntős ágra, amelyben saját
+        // csoportjának 2. vagy 3. helyezettje van.
+        // -------------------------------------------------
+
+        Shuffle(firstPlaces);
+
+        List<(
+            TournamentMatch Match,
+            int FirstSourcePoolId,
+            int SecondSourcePoolId
+        )>? assignedBranches = null;
+
+        const int maxAttempts = 1000;
+
+        for (var attempt = 0;
+            attempt < maxAttempts;
+            attempt++)
+        {
+            var candidateBranches =
+                roundOf12Branches.ToList();
+
+            Shuffle(candidateBranches);
+
+            var valid = true;
+
+            for (var i = 0; i < 4; i++)
+            {
+                var firstPlacePoolId =
+                    firstPlaces[i].TournamentPoolId;
+
+                var branch =
+                    candidateBranches[i];
+
+                if (
+                    branch.FirstSourcePoolId ==
+                        firstPlacePoolId ||
+                    branch.SecondSourcePoolId ==
+                        firstPlacePoolId)
+                {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (valid)
+            {
+                assignedBranches =
+                    candidateBranches;
+
+                break;
+            }
+        }
+
+        if (assignedBranches == null)
+        {
+            throw new Exception(
+                "Nem sikerült szabályos negyeddöntős ágakat kisorsolni.");
+        }
 
         var quarterfinalMatches =
             new List<TournamentMatch>();
 
         for (var i = 0; i < 4; i++)
         {
-            var poolWinnerEntryId =
-                firstPlaces[i].TournamentEntryId!.Value;
+            var firstPlace =
+                firstPlaces[i];
 
-            var roundOf12Match =
-                roundOf12Matches[i];
+            var sourceRoundOf12Match =
+                assignedBranches[i].Match;
 
-            var quarterfinal =
+            quarterfinalMatches.Add(
                 new TournamentMatch
                 {
                     TournamentId =
                         tournamentId,
-
-                    TournamentPoolId =
-                        null,
 
                     MatchNumber =
                         nextMatchNumber++,
@@ -1835,33 +1932,41 @@ public class TournamentService : ITournamentService
                     Stage =
                         TournamentMatchStage.Quarterfinal,
 
+                    Status =
+                        TournamentMatchStatus.WaitingForTeams,
+
+                    // Csoportelső közvetlenül bent van
                     Team1EntryId =
-                        poolWinnerEntryId,
+                        firstPlace.TournamentEntryId,
 
                     Team1SourceType =
                         MatchParticipantSourceType.DirectTeam,
 
-                    Team2EntryId =
-                        null,
-
+                    // Másik fél az R12 győztese
                     Team2SourceMatchId =
-                        roundOf12Match.Id,
+                        sourceRoundOf12Match.Id,
 
                     Team2SourceType =
-                        MatchParticipantSourceType.MatchWinner,
-
-                    Status =
-                        TournamentMatchStatus.WaitingForTeams
-                };
-
-            quarterfinalMatches.Add(
-                quarterfinal);
-
-            _context.TournamentMatches.Add(
-                quarterfinal);
+                        MatchParticipantSourceType.MatchWinner
+                });
         }
 
+        _context.TournamentMatches.AddRange(
+            quarterfinalMatches);
+
         await _context.SaveChangesAsync();
+
+        // -------------------------------------------------
+        // 3. ELŐDÖNTŐ ÁGAK SORSOLÁSA
+        //
+        // A négy QF ágat véletlenszerűen párosítjuk.
+        // Ezzel a teljes knockout bracket most már fix.
+        // -------------------------------------------------
+
+        var shuffledQuarterfinals =
+            quarterfinalMatches.ToList();
+
+        Shuffle(shuffledQuarterfinals);
 
         var semifinal1 =
             new TournamentMatch
@@ -1875,20 +1980,20 @@ public class TournamentService : ITournamentService
                 Stage =
                     TournamentMatchStage.Semifinal,
 
+                Status =
+                    TournamentMatchStatus.WaitingForTeams,
+
                 Team1SourceMatchId =
-                    quarterfinalMatches[0].Id,
+                    shuffledQuarterfinals[0].Id,
 
                 Team1SourceType =
                     MatchParticipantSourceType.MatchWinner,
 
                 Team2SourceMatchId =
-                    quarterfinalMatches[1].Id,
+                    shuffledQuarterfinals[1].Id,
 
                 Team2SourceType =
-                    MatchParticipantSourceType.MatchWinner,
-
-                Status =
-                    TournamentMatchStatus.WaitingForTeams
+                    MatchParticipantSourceType.MatchWinner
             };
 
         var semifinal2 =
@@ -1903,29 +2008,33 @@ public class TournamentService : ITournamentService
                 Stage =
                     TournamentMatchStage.Semifinal,
 
+                Status =
+                    TournamentMatchStatus.WaitingForTeams,
+
                 Team1SourceMatchId =
-                    quarterfinalMatches[2].Id,
+                    shuffledQuarterfinals[2].Id,
 
                 Team1SourceType =
                     MatchParticipantSourceType.MatchWinner,
 
                 Team2SourceMatchId =
-                    quarterfinalMatches[3].Id,
+                    shuffledQuarterfinals[3].Id,
 
                 Team2SourceType =
-                    MatchParticipantSourceType.MatchWinner,
-
-                Status =
-                    TournamentMatchStatus.WaitingForTeams
+                    MatchParticipantSourceType.MatchWinner
             };
 
-        _context.TournamentMatches.Add(
-            semifinal1);
-
-        _context.TournamentMatches.Add(
+        _context.TournamentMatches.AddRange(
+            semifinal1,
             semifinal2);
 
         await _context.SaveChangesAsync();
+
+        // -------------------------------------------------
+        // 4. BRONZMÉRKŐZÉS
+        //
+        // Elődöntők vesztesei.
+        // -------------------------------------------------
 
         var bronzeMatch =
             new TournamentMatch
@@ -1939,6 +2048,9 @@ public class TournamentService : ITournamentService
                 Stage =
                     TournamentMatchStage.Bronze,
 
+                Status =
+                    TournamentMatchStatus.WaitingForTeams,
+
                 Team1SourceMatchId =
                     semifinal1.Id,
 
@@ -1949,11 +2061,14 @@ public class TournamentService : ITournamentService
                     semifinal2.Id,
 
                 Team2SourceType =
-                    MatchParticipantSourceType.MatchLoser,
-
-                Status =
-                    TournamentMatchStatus.WaitingForTeams
+                    MatchParticipantSourceType.MatchLoser
             };
+
+        // -------------------------------------------------
+        // 5. DÖNTŐ
+        //
+        // Elődöntők győztesei.
+        // -------------------------------------------------
 
         var finalMatch =
             new TournamentMatch
@@ -1967,6 +2082,9 @@ public class TournamentService : ITournamentService
                 Stage =
                     TournamentMatchStage.Final,
 
+                Status =
+                    TournamentMatchStatus.WaitingForTeams,
+
                 Team1SourceMatchId =
                     semifinal1.Id,
 
@@ -1977,22 +2095,23 @@ public class TournamentService : ITournamentService
                     semifinal2.Id,
 
                 Team2SourceType =
-                    MatchParticipantSourceType.MatchWinner,
-
-                Status =
-                    TournamentMatchStatus.WaitingForTeams
+                    MatchParticipantSourceType.MatchWinner
             };
 
-        _context.TournamentMatches.Add(
-            bronzeMatch);
-
-        _context.TournamentMatches.Add(
+        _context.TournamentMatches.AddRange(
+            bronzeMatch,
             finalMatch);
 
         var tournament =
             await _context.Tournaments
-                .FirstAsync(t =>
+                .FirstOrDefaultAsync(t =>
                     t.Id == tournamentId);
+
+        if (tournament == null)
+        {
+            throw new Exception(
+                "A verseny nem található.");
+        }
 
         tournament.Status =
             TournamentStatus.KnockoutStage;

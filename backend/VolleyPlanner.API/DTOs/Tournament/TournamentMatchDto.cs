@@ -19,6 +19,8 @@ public class TournamentMatchDto
     public int? Team2EntryId { get; set; }
 
     public string? Team2Name { get; set; }
+    public int? Team1SourceMatchId { get; set; }
+    public int? Team2SourceMatchId { get; set; }
 
     public string Team1SourceLabel { get; set; } = string.Empty;
 
