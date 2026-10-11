@@ -17,6 +17,10 @@ import {
   tournamentService,
 } from "../services/tournamentService";
 
+import {
+  sportRoleService,
+} from "../services/sportRoleService";
+
 import type {
   TournamentBracket,
   TournamentDetails,
@@ -25,11 +29,24 @@ import type {
   TournamentMatch,
 } from "../types/tournament";
 
+import {
+  teamInvitationService,
+} from "../services/teamInvitationService";
+
+import {
+  authService,
+} from "../services/authService";
+
 type TournamentTab =
   | "overview"
   | "pools"
   | "knockout"
   | "results";
+
+type MatchSetInput = {
+  team1Points: string;
+  team2Points: string;
+};
 
 function TournamentDetailsPage() {
   const { id } = useParams();
@@ -42,6 +59,36 @@ function TournamentDetailsPage() {
   ] = useState<TournamentDetails | null>(
     null
   );
+
+  const [
+    currentUserId,
+    setCurrentUserId,
+  ] = useState<number | null>(null);
+
+  const [
+    currentUserIsOrganizerCoach,
+    setCurrentUserIsOrganizerCoach,
+  ] = useState(false);
+
+  const [
+    currentUserIsPlayer,
+    setCurrentUserIsPlayer,
+  ] = useState(false);
+
+  const [
+    drawingTournament,
+    setDrawingTournament,
+  ] = useState(false);
+
+  const [
+    drawError,
+    setDrawError,
+  ] = useState("");
+
+  const [
+    drawSuccess,
+    setDrawSuccess,
+  ] = useState("");
 
   const [
     entries,
@@ -79,6 +126,55 @@ function TournamentDetailsPage() {
     setError,
   ] = useState("");
 
+  const [
+    selectedMatch,
+    setSelectedMatch,
+  ] = useState<TournamentMatch | null>(null);
+
+  const [
+    resultSets,
+    setResultSets,
+  ] = useState<MatchSetInput[]>([
+    {
+      team1Points: "",
+      team2Points: "",
+    },
+    {
+      team1Points: "",
+      team2Points: "",
+    },
+  ]);
+
+  const [
+    submittingResult,
+    setSubmittingResult,
+  ] = useState(false);
+
+  const [
+    resultError,
+    setResultError,
+  ] = useState("");
+
+  const [
+    playerCode,
+    setPlayerCode,
+  ] = useState("");
+
+  const [
+    sendingInvitation,
+    setSendingInvitation,
+  ] = useState(false);
+
+  const [
+    invitationError,
+    setInvitationError,
+  ] = useState("");
+
+  const [
+    invitationSuccess,
+    setInvitationSuccess,
+  ] = useState("");
+
   useEffect(() => {
     if (
       !Number.isInteger(tournamentId) ||
@@ -101,6 +197,8 @@ function TournamentDetailsPage() {
         const [
           details,
           tournamentEntries,
+          currentUser,
+          currentRoles,
         ] = await Promise.all([
           tournamentService.getById(
             tournamentId
@@ -108,10 +206,19 @@ function TournamentDetailsPage() {
           tournamentService.getEntries(
             tournamentId
           ),
+          authService.getMe(),
+          sportRoleService.getMySportRoles(),
         ]);
 
         setTournament(details);
         setEntries(tournamentEntries);
+        setCurrentUserId(currentUser.userId);
+        setCurrentUserIsOrganizerCoach(
+          currentRoles.isOrganizerCoach
+        );
+        setCurrentUserIsPlayer(
+          currentRoles.isPlayer
+        );
 
         try {
           const bracketData =
@@ -164,6 +271,28 @@ function TournamentDetailsPage() {
     void loadData();
   }, [tournamentId]);
 
+  const isOrganizer =
+    currentUserId !== null &&
+    tournament !== null &&
+    currentUserIsOrganizerCoach &&
+    tournament.organizerUserId ===
+      currentUserId;
+
+  const currentUserIsEntered =
+    currentUserId !== null &&
+    entries.some(
+      entry =>
+        entry.player1UserId === currentUserId ||
+        entry.player2UserId === currentUserId
+    );
+
+  const canStartDraw =
+    isOrganizer &&
+    tournament?.status ===
+      "RegistrationOpen" &&
+    entries.length >= 12 &&
+    entries.length <= 16;
+
   const poolGroups = useMemo(() => {
     const groups: Record<
       string,
@@ -184,6 +313,42 @@ function TournamentDetailsPage() {
     );
 
     return groups;
+  }, [bracket]);
+
+  const matchNumberById = useMemo(() => {
+    const map = new Map<number, number>();
+
+    if (!bracket) {
+      return map;
+    }
+
+    const allMatches: TournamentMatch[] = [
+      ...bracket.poolMatches,
+      ...bracket.roundOf12Matches,
+      ...bracket.quarterfinalMatches,
+      ...bracket.semifinalMatches,
+    ];
+
+    if (bracket.bronzeMatch) {
+      allMatches.push(
+        bracket.bronzeMatch
+      );
+    }
+
+    if (bracket.finalMatch) {
+      allMatches.push(
+        bracket.finalMatch
+      );
+    }
+
+    allMatches.forEach(match => {
+      map.set(
+        match.id,
+        match.matchNumber
+      );
+    });
+
+    return map;
   }, [bracket]);
 
   const knockoutTree = useMemo(() => {
@@ -405,6 +570,304 @@ function TournamentDetailsPage() {
     }
   };
 
+  const getSourceDisplayLabel = (
+    sourceLabel: string,
+    sourceMatchId: number | null
+  ) => {
+    if (!sourceMatchId) {
+      return sourceLabel;
+    }
+
+    const matchNumber =
+      matchNumberById.get(
+        sourceMatchId
+      );
+
+    if (!matchNumber) {
+      return sourceLabel;
+    }
+
+    if (
+      sourceLabel.startsWith(
+        "Winner"
+      )
+    ) {
+      return `#${matchNumber} győztese`;
+    }
+
+    if (
+      sourceLabel.startsWith(
+        "Loser"
+      )
+    ) {
+      return `#${matchNumber} vesztese`;
+    }
+
+    return sourceLabel;
+  };
+
+  const handleStartDraw = async () => {
+    if (!tournament) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Biztosan elindítod a sorsolást? A sorsolás után a csoportbeosztás rögzítésre kerül."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDrawingTournament(true);
+      setDrawError("");
+      setDrawSuccess("");
+
+      const drawResult =
+        await tournamentService.drawTournament(
+          tournamentId
+        );
+
+      const [
+        updatedTournament,
+        updatedBracket,
+      ] = await Promise.all([
+        tournamentService.getById(
+          tournamentId
+        ),
+        tournamentService.getBracket(
+          tournamentId
+        ),
+      ]);
+
+      setTournament(updatedTournament);
+      setBracket(updatedBracket);
+
+      setDrawSuccess(
+        `A sorsolás sikeresen elkészült. ${drawResult.createdMatches} mérkőzés jött létre.`
+      );
+
+      setActiveTab("pools");
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setDrawError(
+          err.response?.data?.message ??
+            "Nem sikerült elindítani a sorsolást."
+        );
+      } else {
+        setDrawError(
+          "Nem sikerült elindítani a sorsolást."
+        );
+      }
+    } finally {
+      setDrawingTournament(false);
+    }
+  };
+
+  const openResultForm = (
+    match: TournamentMatch
+  ) => {
+    setSelectedMatch(match);
+
+    setResultSets([
+      {
+        team1Points: "",
+        team2Points: "",
+      },
+      {
+        team1Points: "",
+        team2Points: "",
+      },
+    ]);
+
+    setResultError("");
+  };
+
+  const closeResultForm = () => {
+    if (submittingResult) {
+      return;
+    }
+
+    setSelectedMatch(null);
+    setResultError("");
+  };
+
+  const updateResultSet = (
+    index: number,
+    field: keyof MatchSetInput,
+    value: string
+  ) => {
+    setResultSets(current =>
+      current.map((set, setIndex) =>
+        setIndex === index
+          ? {
+              ...set,
+              [field]: value,
+            }
+          : set
+      )
+    );
+  };
+
+  const addThirdSet = () => {
+    if (resultSets.length === 3) {
+      return;
+    }
+
+    setResultSets(current => [
+      ...current,
+      {
+        team1Points: "",
+        team2Points: "",
+      },
+    ]);
+  };
+
+  const removeThirdSet = () => {
+    if (resultSets.length !== 3) {
+      return;
+    }
+
+    setResultSets(current =>
+      current.slice(0, 2)
+    );
+  };
+
+  const sendTeamInvitation = async () => {
+    const normalizedCode =
+      playerCode.trim();
+
+    if (!normalizedCode) {
+      setInvitationError(
+        "Add meg a csapattárs játékoskódját."
+      );
+
+      return;
+    }
+
+    try {
+      setSendingInvitation(true);
+      setInvitationError("");
+      setInvitationSuccess("");
+
+      const invitation =
+        await teamInvitationService.create({
+          tournamentId,
+          playerCode: normalizedCode,
+        });
+
+      setInvitationSuccess(
+        `A meghívást elküldtük ${invitation.invitedName} részére.`
+      );
+
+      setPlayerCode("");
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setInvitationError(
+          err.response?.data?.message ??
+            "Nem sikerült elküldeni a meghívást."
+        );
+      } else {
+        setInvitationError(
+          "Nem sikerült elküldeni a meghívást."
+        );
+      }
+    } finally {
+      setSendingInvitation(false);
+    }
+  };
+
+  const submitResult = async () => {
+    if (!selectedMatch) {
+      return;
+    }
+
+    try {
+      setSubmittingResult(true);
+      setResultError("");
+
+      if (
+        resultSets.some(
+          set =>
+            set.team1Points.trim() === "" ||
+            set.team2Points.trim() === ""
+        )
+      ) {
+        setResultError(
+          "Minden szett pontszámát add meg."
+        );
+
+        return;
+      }
+
+      const sets = resultSets.map(set => ({
+        team1Points: Number(
+          set.team1Points
+        ),
+        team2Points: Number(
+          set.team2Points
+        ),
+      }));
+
+      await tournamentService.submitMatchResult(
+        tournamentId,
+        selectedMatch.id,
+        {
+          sets,
+        }
+      );
+
+      const [
+        updatedBracket,
+        updatedTournament,
+      ] = await Promise.all([
+        tournamentService.getBracket(
+          tournamentId
+        ),
+        tournamentService.getById(
+          tournamentId
+        ),
+      ]);
+
+      setBracket(updatedBracket);
+      setTournament(updatedTournament);
+
+      if (
+        updatedTournament.status ===
+        "Completed"
+      ) {
+        const result =
+          await tournamentService.getFinalResult(
+            tournamentId
+          );
+
+        setFinalResult(result);
+      }
+
+      setSelectedMatch(null);
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setResultError(
+          err.response?.data?.message ??
+            "Nem sikerült rögzíteni az eredményt."
+        );
+      } else {
+        setResultError(
+          "Nem sikerült rögzíteni az eredményt."
+        );
+      }
+    } finally {
+      setSubmittingResult(false);
+    }
+  };
+
   const renderMatch = (
     match: TournamentMatch
   ) => {
@@ -433,18 +896,24 @@ function TournamentDetailsPage() {
     };
 
     const team1 = getDisplayTeamName(
-      match.team1Name,
+    match.team1Name,
+    getSourceDisplayLabel(
       match.team1SourceLabel,
-      match.team1EntryId,
-      match.isAutomaticResult
-    );
+      match.team1SourceMatchId
+    ),
+    match.team1EntryId,
+    match.isAutomaticResult
+  );
 
-    const team2 = getDisplayTeamName(
-      match.team2Name,
+  const team2 = getDisplayTeamName(
+    match.team2Name,
+    getSourceDisplayLabel(
       match.team2SourceLabel,
-      match.team2EntryId,
-      match.isAutomaticResult
-    );
+      match.team2SourceMatchId
+    ),
+    match.team2EntryId,
+    match.isAutomaticResult
+  );
 
     return (
       <article
@@ -500,7 +969,23 @@ function TournamentDetailsPage() {
             Automatikus eredmény
           </small>
         )}
-      </article>
+
+        {isOrganizer &&
+          match.status === "Ready" &&
+          match.team1EntryId !== null &&
+          match.team2EntryId !== null && (
+            <button
+              type="button"
+              className="primary-button tournament-result-button"
+              onClick={() =>
+                openResultForm(match)
+              }
+            >
+              Eredmény rögzítése
+            </button>
+          )}
+
+        </article>
     );
   };
 
@@ -553,7 +1038,53 @@ function TournamentDetailsPage() {
         >
           ← Vissza
         </Link>
+
+        {isOrganizer &&
+          tournament.status ===
+            "RegistrationOpen" && (
+            <div className="tournament-draw-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() =>
+                  void handleStartDraw()
+                }
+                disabled={
+                  !canStartDraw ||
+                  drawingTournament
+                }
+              >
+                {drawingTournament
+                  ? "Sorsolás..."
+                  : "Sorsolás indítása"}
+              </button>
+
+              {entries.length < 12 && (
+                <span className="tournament-draw-hint">
+                  A sorsoláshoz még{" "}
+                  {12 - entries.length} csapat
+                  szükséges.
+                </span>
+              )}
+            </div>
+          )}
       </div>
+
+      {drawError && (
+        <div className="card tournament-draw-message">
+          <p className="error-text">
+            {drawError}
+          </p>
+        </div>
+      )}
+
+      {drawSuccess && (
+        <div className="card tournament-draw-message">
+          <p className="success-text">
+            {drawSuccess}
+          </p>
+        </div>
+      )}
 
       <div className="tournament-tabs">
         <button
@@ -725,6 +1256,81 @@ function TournamentDetailsPage() {
               </div>
             </div>
           </section>
+
+          {currentUserIsPlayer &&
+            !currentUserIsEntered &&
+            tournament.status ===
+              "RegistrationOpen" && (
+              <section className="card tournament-invitation-card">
+              <div className="tournament-section-heading">
+                <span>
+                  NEVEZÉS
+                </span>
+
+                <h2>
+                  Csapattárs meghívása
+                </h2>
+              </div>
+
+              <p className="info-text">
+                Add meg annak a játékosnak
+                a PlayerCode-ját, akivel
+                csapatként szeretnél nevezni.
+              </p>
+
+              <div className="tournament-invitation-form">
+                <div className="profile-field">
+                  <label htmlFor="playerCode">
+                    Csapattárs PlayerCode-ja
+                  </label>
+
+                  <input
+                    id="playerCode"
+                    type="text"
+                    value={playerCode}
+                    onChange={event => {
+                      setPlayerCode(
+                        event.target.value
+                      );
+
+                      setInvitationError("");
+                      setInvitationSuccess("");
+                    }}
+                    placeholder="pl. ABC123"
+                    disabled={sendingInvitation}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() =>
+                    void sendTeamInvitation()
+                  }
+                  disabled={
+                    sendingInvitation ||
+                    !playerCode.trim()
+                  }
+                >
+                  {sendingInvitation
+                    ? "Küldés..."
+                    : "Meghívás küldése"}
+                </button>
+              </div>
+
+              {invitationError && (
+                <p className="error-text">
+                  {invitationError}
+                </p>
+              )}
+
+              {invitationSuccess && (
+                <p className="success-text">
+                  {invitationSuccess}
+                </p>
+              )}
+            </section>
+          )}
 
           <section className="card tournament-entry-card">
             <div className="tournament-section-heading">
@@ -1074,6 +1680,143 @@ function TournamentDetailsPage() {
             </div>
           )}
         </>
+      )}
+
+      {selectedMatch && (
+        <div
+          className="tournament-result-modal-backdrop"
+          onClick={closeResultForm}
+        >
+          <div
+            className="tournament-result-modal card"
+            onClick={event =>
+              event.stopPropagation()
+            }
+          >
+            <div className="tournament-result-modal-header">
+              <div>
+                <small>
+                  #{selectedMatch.matchNumber}
+                </small>
+
+                <h2>
+                  Eredmény rögzítése
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                className="tournament-result-modal-close"
+                onClick={closeResultForm}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="tournament-result-team-header">
+              <strong>
+                {selectedMatch.team1Name}
+              </strong>
+
+              <span />
+
+              <strong>
+                {selectedMatch.team2Name}
+              </strong>
+            </div>
+
+            <div className="tournament-result-set-list">
+              {resultSets.map(
+                (set, index) => (
+                  <div
+                    key={index}
+                    className="tournament-result-set-row"
+                  >
+                    <input
+                      type="number"
+                      min="0"
+                      value={set.team1Points}
+                      onChange={event =>
+                        updateResultSet(
+                          index,
+                          "team1Points",
+                          event.target.value
+                        )
+                      }
+                    />
+
+                    <span>
+                      {index + 1}. szett
+                    </span>
+
+                    <input
+                      type="number"
+                      min="0"
+                      value={set.team2Points}
+                      onChange={event =>
+                        updateResultSet(
+                          index,
+                          "team2Points",
+                          event.target.value
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+            </div>
+
+            <div className="tournament-result-set-actions">
+              {resultSets.length === 2 ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={addThirdSet}
+                >
+                  + 3. szett
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={removeThirdSet}
+                >
+                  3. szett eltávolítása
+                </button>
+              )}
+            </div>
+
+            {resultError && (
+              <p className="error-text">
+                {resultError}
+              </p>
+            )}
+
+            <div className="tournament-result-modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={closeResultForm}
+                disabled={submittingResult}
+              >
+                Mégse
+              </button>
+
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() =>
+                  void submitResult()
+                }
+                disabled={submittingResult}
+              >
+                {submittingResult
+                  ? "Mentés..."
+                  : "Eredmény mentése"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AppLayout>
   );

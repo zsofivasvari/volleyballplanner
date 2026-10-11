@@ -106,3 +106,109 @@ export interface TournamentFinalResult {
   fourthPlaceEntryId: number;
   fourthPlaceTeamName: string;
 }
+
+export interface SubmitTournamentMatchSetResult {
+  team1Points: number;
+  team2Points: number;
+}
+
+export interface SubmitTournamentMatchResultRequest {
+  sets: SubmitTournamentMatchSetResult[];
+}
+
+export interface TournamentMatchResultResponse {
+  matchId: number;
+  matchNumber: number;
+  stage: string;
+
+  team1EntryId: number;
+  team1Name: string;
+
+  team2EntryId: number;
+  team2Name: string;
+
+  team1SetsWon: number;
+  team2SetsWon: number;
+
+  winnerEntryId: number;
+  winnerTeamName: string;
+
+  loserEntryId: number;
+  loserTeamName: string;
+
+  status: string;
+}
+
+export interface CreateTournamentRequest {
+  name: string;
+  description: string;
+  location: string;
+  startDate: string;
+  endDate: string | null;
+  registrationDeadline: string;
+  maxTeams: number;
+}
+
+export interface CreateTeamInvitationRequest {
+  tournamentId: number;
+  playerCode: string;
+}
+
+export interface TeamInvitation {
+  id: number;
+  tournamentId: number;
+  tournamentName: string;
+
+  inviterUserId: number;
+  inviterName: string;
+  inviterPlayerCode: string;
+
+  invitedUserId: number;
+  invitedName: string;
+  invitedPlayerCode: string;
+
+  status: string;
+
+  createdAt: string;
+  respondedAt: string | null;
+}
+
+export interface TournamentEntryResponse {
+  entryId: number;
+  tournamentId: number;
+  tournamentName: string;
+
+  teamId: number;
+  teamName: string;
+
+  player1UserId: number;
+  player1Name: string;
+
+  player2UserId: number;
+  player2Name: string;
+
+  registeredAt: string;
+}
+
+export interface TournamentPoolSlot {
+  slotNumber: number;
+  entryId: number | null;
+  teamId: number | null;
+  teamName: string | null;
+  isBye: boolean;
+  finalRank: number | null;
+}
+
+export interface TournamentPool {
+  poolId: number;
+  name: string;
+  poolNumber: number;
+  slots: TournamentPoolSlot[];
+}
+
+export interface TournamentDrawResponse {
+  tournamentId: number;
+  tournamentName: string;
+  pools: TournamentPool[];
+  createdMatches: number;
+}

@@ -1,14 +1,30 @@
 import api from "../api/axios";
 
 import type {
+  CreateTournamentRequest,
   TournamentBracket,
   TournamentDetails,
   TournamentEntryListItem,
   TournamentFinalResult,
   TournamentListItem,
+  TournamentMatchResultResponse,
+  SubmitTournamentMatchResultRequest,
+  TournamentDrawResponse,
 } from "../types/tournament";
 
 export const tournamentService = {
+  async create(
+    request: CreateTournamentRequest
+  ): Promise<TournamentDetails> {
+    const response =
+      await api.post<TournamentDetails>(
+        "/Tournaments",
+        request
+      );
+
+    return response.data;
+  },
+
   async getAll(): Promise<TournamentListItem[]> {
     const response =
       await api.get<TournamentListItem[]>(
@@ -66,6 +82,31 @@ export const tournamentService = {
     const response =
       await api.get<TournamentFinalResult>(
         `/Tournaments/${id}/final-result`
+      );
+
+    return response.data;
+  },
+
+  async submitMatchResult(
+    tournamentId: number,
+    matchId: number,
+    request: SubmitTournamentMatchResultRequest
+  ): Promise<TournamentMatchResultResponse> {
+    const response =
+      await api.post<TournamentMatchResultResponse>(
+        `/Tournaments/${tournamentId}/matches/${matchId}/result`,
+        request
+      );
+
+    return response.data;
+  },
+
+  async drawTournament(
+    tournamentId: number
+  ): Promise<TournamentDrawResponse> {
+    const response =
+      await api.post<TournamentDrawResponse>(
+        `/Tournaments/${tournamentId}/draw`
       );
 
     return response.data;

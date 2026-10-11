@@ -25,14 +25,7 @@ export interface UserProfileResponse {
   userId: number;
   name: string;
   email: string;
-  level?: string | null;
-  goal?: string | null;
-  age?: number | null;
-  height?: number | null;
-  weight?: number | null;
-}
-
-export interface UpdateUserProfileRequest {
+  playerCode: string;
   level?: string | null;
   goal?: string | null;
   age?: number | null;

@@ -3,11 +3,17 @@ import axios from "axios";
 import AppLayout from "../components/layout/AppLayout";
 import { authService } from "../services/authService";
 import { sportRoleService } from "../services/sportRoleService";
+import {
+  teamInvitationService,
+} from "../services/teamInvitationService";
 import type {
   UpdateUserProfileRequest,
   UserProfileResponse,
 } from "../types/auth";
 import type { SportRolesResponse } from "../types/sportRole";
+import type {
+  TeamInvitation,
+} from "../types/tournament";
 
 function ProfilePage() {
   const [profile, setProfile] =
@@ -34,18 +40,37 @@ function ProfilePage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+    const [
+      receivedInvitations,
+      setReceivedInvitations,
+    ] = useState<TeamInvitation[]>([]);
+
+    const [
+      respondingInvitationId,
+      setRespondingInvitationId,
+    ] = useState<number | null>(null);
+
   useEffect(() => {
     const loadProfile = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const [profileData, roleData] = await Promise.all([
+        const [
+          profileData,
+          roleData,
+          invitationData,
+        ] = await Promise.all([
           authService.getMe(),
           sportRoleService.getMySportRoles(),
+          teamInvitationService.getReceived(),
         ]);
 
         setProfile(profileData);
+
+        setReceivedInvitations(
+          invitationData
+        );
 
         setPlayerProfileForm({
           level: profileData.level ?? "",
@@ -91,6 +116,12 @@ function ProfilePage() {
 
     void loadProfile();
   }, []);
+
+  const pendingInvitations =
+    receivedInvitations.filter(
+      invitation =>
+        invitation.status === "Pending"
+    );
 
   const selectPlayer = () => {
     setSuccessMessage("");
@@ -277,6 +308,129 @@ function ProfilePage() {
     }
   };
 
+  const handleCopyPlayerCode = async () => {
+    if (!profile?.playerCode) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        profile.playerCode
+      );
+
+      setError("");
+
+      setSuccessMessage(
+        "A játékoskód a vágólapra másolva."
+      );
+    } catch (err) {
+      console.error(err);
+
+      setSuccessMessage("");
+
+      setError(
+        "A játékoskód másolása nem sikerült."
+      );
+    }
+  };
+
+  const handleAcceptInvitation =
+    async (invitationId: number) => {
+      try {
+        setRespondingInvitationId(
+          invitationId
+        );
+
+        setError("");
+        setSuccessMessage("");
+
+        const entry =
+          await teamInvitationService.accept(
+            invitationId
+          );
+
+        setReceivedInvitations(current =>
+          current.map(invitation =>
+            invitation.id === invitationId
+              ? {
+                  ...invitation,
+                  status: "Accepted",
+                  respondedAt:
+                    new Date().toISOString(),
+                }
+              : invitation
+          )
+        );
+
+        setSuccessMessage(
+          `Sikeresen beneveztetek a(z) ${entry.tournamentName} versenyre ${entry.teamName} csapatként.`
+        );
+      } catch (err) {
+        console.error(err);
+
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ??
+              "Nem sikerült elfogadni a meghívást."
+          );
+        } else {
+          setError(
+            "Nem sikerült elfogadni a meghívást."
+          );
+        }
+      } finally {
+        setRespondingInvitationId(null);
+      }
+    };
+
+  const handleRejectInvitation =
+    async (invitationId: number) => {
+      try {
+        setRespondingInvitationId(
+          invitationId
+        );
+
+        setError("");
+        setSuccessMessage("");
+
+        await teamInvitationService.reject(
+          invitationId
+        );
+
+        setReceivedInvitations(current =>
+          current.map(invitation =>
+            invitation.id === invitationId
+              ? {
+                  ...invitation,
+                  status: "Rejected",
+                  respondedAt:
+                    new Date().toISOString(),
+                }
+              : invitation
+          )
+        );
+
+        setSuccessMessage(
+          "A meghívást elutasítottad."
+        );
+      } catch (err) {
+        console.error(err);
+
+        if (axios.isAxiosError(err)) {
+          setError(
+            err.response?.data?.message ??
+              "Nem sikerült elutasítani a meghívást."
+          );
+        } else {
+          setError(
+            "Nem sikerült elutasítani a meghívást."
+          );
+        }
+      } finally {
+        setRespondingInvitationId(null);
+      }
+    };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userName");
@@ -327,6 +481,40 @@ function ProfilePage() {
             <p className="profile-value">
               {profile?.email ?? "Nincs megadva"}
             </p>
+
+            {roles.isPlayer && (
+              <>
+                <p className="profile-label">
+                  Játékoskód
+                </p>
+
+                <div className="profile-player-code-row">
+                  <strong className="profile-player-code">
+                    {profile?.playerCode ??
+                      "Nincs játékoskód"}
+                  </strong>
+
+                  {profile?.playerCode && (
+                    <button
+                      type="button"
+                      className="secondary-button profile-copy-code-button"
+                      onClick={() =>
+                        void handleCopyPlayerCode()
+                      }
+                    >
+                      Másolás
+                    </button>
+                  )}
+                </div>
+
+                <p className="profile-player-code-help">
+                  Ezt a kódot add meg a
+                  csapattársadnak, ha együtt
+                  szeretnétek nevezni egy
+                  versenyre.
+                </p>
+              </>
+            )}
           </div>
         </section>
 
@@ -559,6 +747,108 @@ function ProfilePage() {
                   : "Játékosprofil mentése"}
               </button>
             </div>
+          </section>
+        )}
+
+        {roles.isPlayer && (
+          <section className="card profile-invitations-card">
+            <div className="profile-section-heading">
+              <h2>
+                Versenymeghívások
+              </h2>
+
+              <p>
+                Itt láthatod a csapattársnak
+                érkezett versenymeghívásaidat.
+              </p>
+            </div>
+
+            {pendingInvitations.length === 0 ? (
+              <p className="info-text">
+                Nincs függőben lévő
+                versenymeghívásod.
+              </p>
+            ) : (
+              <div className="profile-invitation-list">
+                {pendingInvitations.map(
+                  invitation => (
+                    <article
+                      key={invitation.id}
+                      className="profile-invitation-item"
+                    >
+                      <div className="profile-invitation-info">
+                        <span>
+                          VERSENY
+                        </span>
+
+                        <h3>
+                          {
+                            invitation.tournamentName
+                          }
+                        </h3>
+
+                        <p>
+                          Meghívó:
+                          {" "}
+                          <strong>
+                            {
+                              invitation.inviterName
+                            }
+                          </strong>
+                        </p>
+
+                        <p>
+                          Játékoskód:
+                          {" "}
+                          <strong>
+                            {
+                              invitation.inviterPlayerCode
+                            }
+                          </strong>
+                        </p>
+                      </div>
+
+                      <div className="profile-invitation-actions">
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() =>
+                            void handleAcceptInvitation(
+                              invitation.id
+                            )
+                          }
+                          disabled={
+                            respondingInvitationId !==
+                            null
+                          }
+                        >
+                          {respondingInvitationId ===
+                          invitation.id
+                            ? "Feldolgozás..."
+                            : "Elfogadás"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() =>
+                            void handleRejectInvitation(
+                              invitation.id
+                            )
+                          }
+                          disabled={
+                            respondingInvitationId !==
+                            null
+                          }
+                        >
+                          Elutasítás
+                        </button>
+                      </div>
+                    </article>
+                  )
+                )}
+              </div>
+            )}
           </section>
         )}
 

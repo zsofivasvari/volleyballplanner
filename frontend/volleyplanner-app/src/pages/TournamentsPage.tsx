@@ -164,6 +164,15 @@ function TournamentsPage() {
       title="Versenyek"
       subtitle="Böngéssz a strandröplabda-versenyek között."
     >
+      <div className="tournament-list-actions">
+        <Link
+          to="/tournaments/new"
+          className="primary-button tournament-create-link"
+        >
+          + Új verseny
+        </Link>
+      </div>
+
       <div className="card training-filter-bar">
         <div className="training-filter-group">
           <label htmlFor="tournamentFilter">

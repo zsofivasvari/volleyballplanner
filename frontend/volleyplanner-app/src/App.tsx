@@ -21,6 +21,7 @@ import MyTrainingSessionsPage from "./pages/MyTrainingSessionsPage";
 import EditTrainingSessionPage from "./pages/EditTrainingSessionPage";
 import TournamentsPage from "./pages/TournamentsPage";
 import TournamentDetailsPage from "./pages/TournamentDetailsPage";
+import CreateTournamentPage from "./pages/CreateTournamentPage";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 
@@ -178,6 +179,15 @@ function App() {
           element={
             <ProtectedRoute>
               <TournamentsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/tournaments/new"
+          element={
+            <ProtectedRoute>
+              <CreateTournamentPage />
             </ProtectedRoute>
           }
         />
