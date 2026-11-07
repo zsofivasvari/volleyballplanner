@@ -60,6 +60,9 @@ function GenerateTrainingPlanPage() {
   const [subscriptionLoading, setSubscriptionLoading] =
     useState(true);
 
+  const [checkoutLoading, setCheckoutLoading] =
+    useState(false);
+
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -185,6 +188,40 @@ function GenerateTrainingPlanPage() {
       ...prev,
       focusAreas: prev.focusAreas.filter((item) => item !== focus),
     }));
+  };
+
+  const handleStartPremium = async () => {
+    try {
+      setCheckoutLoading(true);
+      setError("");
+
+      const result =
+        await subscriptionService.createCheckoutSession();
+
+      if (!result.checkoutUrl) {
+        setError(
+          "Nem sikerült megnyitni a Stripe fizetési oldalt."
+        );
+        return;
+      }
+
+      window.location.href = result.checkoutUrl;
+    } catch (err: unknown) {
+      console.error(err);
+
+      if (err instanceof AxiosError) {
+        setError(
+          err.response?.data?.message ??
+            "Nem sikerült elindítani a Premium előfizetést."
+        );
+      } else {
+        setError(
+          "Nem sikerült elindítani a Premium előfizetést."
+        );
+      }
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.SyntheticEvent) => {
@@ -612,20 +649,58 @@ function GenerateTrainingPlanPage() {
                 <strong>Admin – korlátlan generálás</strong>
               ) : subscriptionStatus.isPremium ? (
                 <strong>Premium – korlátlan generálás</strong>
+              ) : subscriptionStatus.remainingFreeGenerations === 0 ? (
+                <strong>
+                  Felhasználtad mind az 5 ingyenes generálásodat.
+                </strong>
               ) : (
                 <strong>
                   Még {subscriptionStatus.remainingFreeGenerations} /{" "}
-                  {subscriptionStatus.freeGenerationLimit} ingyenes generálásod maradt
+                  {subscriptionStatus.freeGenerationLimit} ingyenes
+                  generálásod maradt
                 </strong>
               )}
             </div>
           )}
 
-          <div className="generation-actions">
-            <button className="primary-button" type="submit" disabled={loading}>
-              {loading ? "Generálás..." : "Edzésterv generálása"}
-            </button>
-          </div>
+          {subscriptionStatus &&
+          !subscriptionStatus.isAdmin &&
+          !subscriptionStatus.isPremium &&
+          subscriptionStatus.remainingFreeGenerations === 0 ? (
+            <div className="generation-premium-cta">
+              <div className="generation-premium-cta-text">
+                <strong>Elfogytak az ingyenes generálásaid</strong>
+
+                <p>
+                  Premium előfizetéssel korlátlan számú személyre
+                  szabott edzéstervet generálhatsz.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handleStartPremium}
+                disabled={checkoutLoading}
+              >
+                {checkoutLoading
+                  ? "Átirányítás..."
+                  : "Premium – 1 999 Ft / hó"}
+              </button>
+            </div>
+          ) : (
+            <div className="generation-actions">
+              <button
+                className="primary-button"
+                type="submit"
+                disabled={loading}
+              >
+                {loading
+                  ? "Generálás..."
+                  : "Edzésterv generálása"}
+              </button>
+            </div>
+          )}
         </form>
 
         {error && (

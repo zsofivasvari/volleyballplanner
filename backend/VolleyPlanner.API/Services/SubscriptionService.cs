@@ -152,7 +152,7 @@ public class SubscriptionService : ISubscriptionService
                 Mode = "subscription",
 
                 SuccessUrl =
-                    "http://localhost:5173/profile?subscription=success",
+                    "http://localhost:5173/profile?subscription=success&session_id={CHECKOUT_SESSION_ID}",
 
                 CancelUrl =
                     "http://localhost:5173/profile?subscription=cancelled",
@@ -380,6 +380,215 @@ public class SubscriptionService : ISubscriptionService
         }
 
         return session.Url;
+    }
+
+    public async Task SyncSubscriptionAsync(
+        int userId,
+        string? checkoutSessionId = null)
+    {
+        var user = await _context.Users
+            .Include(u => u.Subscription)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+        {
+            throw new Exception(
+                "A felhasználó nem található.");
+        }
+
+        if (string.IsNullOrWhiteSpace(
+            _stripeSettings.SecretKey))
+        {
+            throw new Exception(
+                "A Stripe SecretKey nincs konfigurálva.");
+        }
+
+        StripeConfiguration.ApiKey =
+            _stripeSettings.SecretKey;
+
+        Stripe.Subscription? stripeSubscription = null;
+
+        string? stripeCustomerId = null;
+
+        // 1. Elsődleges helyreállítás:
+        // a sikeres Checkout Session ID alapján.
+        if (!string.IsNullOrWhiteSpace(
+            checkoutSessionId))
+        {
+            var sessionService =
+                new SessionService();
+
+            var session =
+                await sessionService.GetAsync(
+                    checkoutSessionId);
+
+            if (session.Metadata == null ||
+                !session.Metadata.TryGetValue(
+                    "userId",
+                    out var metadataUserId) ||
+                !int.TryParse(
+                    metadataUserId,
+                    out var stripeUserId) ||
+                stripeUserId != userId)
+            {
+                throw new Exception(
+                    "A Stripe Checkout Session nem ehhez a felhasználóhoz tartozik.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(
+                session.SubscriptionId))
+            {
+                var subscriptionService =
+                    new Stripe.SubscriptionService();
+
+                stripeSubscription =
+                    await subscriptionService.GetAsync(
+                        session.SubscriptionId);
+
+                stripeCustomerId =
+                    session.CustomerId;
+            }
+        }
+
+        // 2. Ha nincs Checkout Session ID,
+        // a Stripe-ban megkeressük a felhasználó
+        // előfizetéseit a metadata.userId alapján.
+        if (stripeSubscription == null)
+        {
+            var subscriptionService =
+                new Stripe.SubscriptionService();
+
+            var searchOptions =
+                new SubscriptionSearchOptions
+                {
+                    Query =
+                        $"metadata['userId']:'{userId}'"
+                };
+
+            var searchResult =
+                await subscriptionService.SearchAsync(
+                    searchOptions);
+
+            stripeSubscription =
+                searchResult.Data
+                    .OrderByDescending(s =>
+                        s.Status == "active" ||
+                        s.Status == "trialing"
+                            ? 1
+                            : 0)
+                    .ThenByDescending(s => s.Created)
+                    .FirstOrDefault();
+
+            stripeCustomerId =
+                stripeSubscription?.CustomerId;
+        }
+
+        // 3. Csak akkor használjuk a helyi
+        // ProviderSubscriptionId-t, ha a Stripe
+        // metadata alapján sem találtunk semmit.
+        if (stripeSubscription == null &&
+            user.Subscription != null &&
+            !string.IsNullOrWhiteSpace(
+                user.Subscription.ProviderSubscriptionId))
+        {
+            var subscriptionService =
+                new Stripe.SubscriptionService();
+
+            try
+            {
+                stripeSubscription =
+                    await subscriptionService.GetAsync(
+                        user.Subscription.ProviderSubscriptionId);
+
+                stripeCustomerId =
+                    stripeSubscription.CustomerId;
+            }
+            catch (StripeException)
+            {
+                stripeSubscription = null;
+            }
+        }
+
+        if (stripeSubscription == null)
+        {
+            return;
+        }
+
+        var subscription =
+            user.Subscription;
+
+        if (subscription == null)
+        {
+            subscription =
+                new Entities.UserSubscription
+                {
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+            _context.UserSubscriptions.Add(
+                subscription);
+        }
+
+        subscription.ProviderCustomerId =
+            stripeCustomerId ??
+            stripeSubscription.CustomerId;
+
+        subscription.ProviderSubscriptionId =
+            stripeSubscription.Id;
+
+        subscription.CancelAtPeriodEnd =
+            stripeSubscription.CancelAtPeriodEnd ||
+            stripeSubscription.CancelAt.HasValue;
+
+        var firstItem =
+            stripeSubscription.Items?.Data?
+                .FirstOrDefault();
+
+        if (firstItem != null)
+        {
+            subscription.CurrentPeriodStart =
+                firstItem.CurrentPeriodStart;
+
+            subscription.CurrentPeriodEnd =
+                firstItem.CurrentPeriodEnd;
+        }
+
+        subscription.Status =
+            stripeSubscription.Status switch
+            {
+                "active" =>
+                    AppSubscriptionStatus.Active,
+
+                "trialing" =>
+                    AppSubscriptionStatus.Active,
+
+                "past_due" =>
+                    AppSubscriptionStatus.PastDue,
+
+                "canceled" =>
+                    AppSubscriptionStatus.Cancelled,
+
+                _ =>
+                    AppSubscriptionStatus.Inactive
+            };
+
+        if (subscription.Status ==
+            AppSubscriptionStatus.Cancelled)
+        {
+            subscription.CancelledAt =
+                DateTime.UtcNow;
+        }
+        else
+        {
+            subscription.CancelledAt =
+                null;
+        }
+
+        subscription.UpdatedAt =
+            DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
     }
 
     public async Task HandleWebhookAsync(

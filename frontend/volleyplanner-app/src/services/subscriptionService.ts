@@ -24,6 +24,23 @@ export const subscriptionService = {
     return response.data;
   },
 
+  async syncSubscription(
+    sessionId?: string
+  ): Promise<SubscriptionStatus> {
+    const response =
+      await api.post<SubscriptionStatus>(
+        "/Subscriptions/sync",
+        null,
+        {
+          params: sessionId
+            ? { sessionId }
+            : undefined,
+        }
+      );
+
+    return response.data;
+  },
+
   async cancelSubscription(): Promise<{ message: string }> {
     const response =
       await api.post<{ message: string }>(

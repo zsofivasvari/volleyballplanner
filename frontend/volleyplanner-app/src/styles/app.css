@@ -2451,6 +2451,58 @@ body {
   margin-top: 1rem;
 }
 
+/* ===== Generation premium CTA ===== */
+
+.generation-premium-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(226, 221, 45, 0.42);
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(226, 221, 45, 0.18),
+      transparent 42%
+    ),
+    rgba(255, 255, 255, 0.94);
+}
+
+.generation-premium-cta-text {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.generation-premium-cta-text strong {
+  color: #09204a;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.generation-premium-cta-text p {
+  margin: 0;
+  color: #456887;
+  line-height: 1.45;
+}
+
+.generation-premium-cta .primary-button {
+  flex-shrink: 0;
+}
+
+@media (max-width: 700px) {
+  .generation-premium-cta {
+    align-items: stretch;
+  }
+
+  .generation-premium-cta .primary-button {
+    width: 100%;
+  }
+}
+
 /* Generated plan */
 
 .generated-plan-showcase {

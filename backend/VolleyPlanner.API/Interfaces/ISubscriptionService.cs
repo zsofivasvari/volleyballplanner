@@ -18,4 +18,8 @@ public interface ISubscriptionService
     Task ReactivateSubscriptionAsync(int userId);
 
     Task<string> CreatePortalSessionAsync(int userId);
+
+    Task SyncSubscriptionAsync(
+        int userId,
+        string? checkoutSessionId = null);
 }

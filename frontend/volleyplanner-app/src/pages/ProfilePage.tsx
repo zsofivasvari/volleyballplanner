@@ -70,17 +70,59 @@ function ProfilePage() {
         setLoading(true);
         setError("");
 
+        const searchParams =
+          new URLSearchParams(
+            window.location.search
+          );
+
+        const subscriptionResult =
+          searchParams.get("subscription");
+
+        const checkoutSessionId =
+          searchParams.get("session_id");
+
         const [
           profileData,
           roleData,
           invitationData,
-          subscriptionData,
         ] = await Promise.all([
           authService.getMe(),
           sportRoleService.getMySportRoles(),
           teamInvitationService.getReceived(),
-          subscriptionService.getMyStatus(),
         ]);
+
+        let subscriptionData: SubscriptionStatus;
+
+        if (
+          subscriptionResult === "success" &&
+          checkoutSessionId
+        ) {
+          subscriptionData =
+            await subscriptionService.syncSubscription(
+              checkoutSessionId
+            );
+
+          window.history.replaceState(
+            {},
+            "",
+            "/profile"
+          );
+        } else {
+          try {
+            subscriptionData =
+              await subscriptionService
+                .syncSubscription();
+          } catch (syncError) {
+            console.error(
+              "Stripe subscription sync failed:",
+              syncError
+            );
+
+            subscriptionData =
+              await subscriptionService
+                .getMyStatus();
+          }
+        }
 
         setProfile(profileData);
 

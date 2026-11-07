@@ -191,6 +191,45 @@ public class SubscriptionsController : ControllerBase
             }
         }
 
+        [HttpPost("sync")]
+        public async Task<IActionResult>
+            SyncSubscription(
+                [FromQuery] string? sessionId = null)
+        {
+            var userIdClaim =
+                User.FindFirst(
+                    ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrWhiteSpace(userIdClaim) ||
+                !int.TryParse(
+                    userIdClaim,
+                    out var userId))
+            {
+                return Unauthorized();
+            }
+
+            try
+            {
+                await _subscriptionService
+                    .SyncSubscriptionAsync(
+                        userId,
+                        sessionId);
+
+                var result =
+                    await _subscriptionService
+                        .GetStatusAsync(userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+        }
+
         [AllowAnonymous]
         [HttpPost("webhook")]
         public async Task<IActionResult> Webhook()
