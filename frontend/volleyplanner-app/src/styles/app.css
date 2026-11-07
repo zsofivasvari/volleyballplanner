@@ -2930,19 +2930,38 @@ body {
 }
 
 /* ===== Profile ===== */
-
 .profile-grid {
   display: grid;
-  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.7fr);
-  gap: 1.25rem;
-  align-items: start;
+  grid-template-columns: minmax(340px, 0.9fr) minmax(520px, 1.6fr);
+  gap: 1rem;
+  align-items: stretch;
 }
 
 .profile-info-card {
+  grid-column: 1;
+  grid-row: 1;
+
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 1.1rem;
   align-items: center;
+
+  height: 100%;
+  align-self: stretch;
+}
+
+.profile-details-card {
+  grid-column: 1;
+  grid-row: 2;
+  height: 100%;
+  align-self: stretch;
+}
+
+.profile-invitations-card {
+  grid-column: 2;
+  grid-row: 2;
+  height: 100%;
+  align-self: stretch;
 }
 
 .profile-avatar {
@@ -2984,7 +3003,25 @@ body {
 }
 
 .profile-role-card {
-  grid-row: span 2;
+  grid-column: 2;
+  grid-row: 1;
+
+  height: 100%;
+  align-self: stretch;
+}
+
+.profile-role-card .profile-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.profile-role-feedback {
+  min-height: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .profile-section-heading h2,
@@ -3089,8 +3126,28 @@ body {
   margin-top: 1.25rem;
 }
 
+.profile-account-card {
+  grid-column: 1 / -1;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+
+  padding: 1.25rem 1.5rem;
+}
+
+.profile-account-card h2 {
+  margin-top: 0;
+  margin-bottom: 0.35rem;
+}
+
+.profile-account-card .info-text {
+  margin: 0;
+}
+
 .profile-account-card .danger-button {
-  margin-top: 0.75rem;
+  flex-shrink: 0;
 }
 
 @media (max-width: 900px) {
@@ -3098,7 +3155,12 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .profile-role-card {
+  .profile-info-card,
+  .profile-role-card,
+  .profile-details-card,
+  .profile-invitations-card,
+  .profile-account-card {
+    grid-column: 1;
     grid-row: auto;
   }
 
@@ -3108,6 +3170,15 @@ body {
 
   .profile-actions .primary-button {
     width: 100%;
+  }
+
+  .profile-account-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-account-card .danger-button {
+    align-self: flex-start;
   }
 }
 
@@ -3246,6 +3317,19 @@ body {
   margin-top: auto;
 }
 
+.training-plan-reference .training-session-actions {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.training-plan-reference > span,
+.training-plan-reference > strong {
+  display: block;
+}
+
 .training-session-link,
 .training-back-link {
   display: inline-block;
@@ -3297,7 +3381,7 @@ body {
 
 .training-plan-reference {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.75rem;
   margin-top: 1rem;
   padding: 1rem;
   border-radius: 18px;
@@ -5696,4 +5780,95 @@ body {
   .tournament-draw-actions button {
     width: 100%;
   }
+}
+
+/* ===== Profile subscription card ===== */
+
+.profile-subscription-card {
+  grid-column: 1 / -1;
+}
+
+.profile-subscription-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.profile-subscription-kicker {
+  margin: 0 0 0.35rem;
+  color: #4c6e8c;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.profile-subscription-card h2 {
+  margin: 0 0 0.45rem;
+  color: #09204a;
+}
+
+.profile-subscription-meta {
+  margin: 0.4rem 0 0;
+  color: #4c6e8c;
+}
+
+.profile-subscription-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.profile-subscription-action > strong {
+  color: #09204a;
+  font-size: 1.1rem;
+}
+
+.profile-subscription-badge {
+  flex-shrink: 0;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+
+  background: linear-gradient(
+    135deg,
+    var(--vm-yellow) 0%,
+    #ffb347 100%
+  );
+
+  color: #001d36;
+  font-weight: 900;
+}
+
+.profile-subscription-error {
+  margin-top: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .profile-subscription-card {
+    grid-column: 1;
+  }
+
+  .profile-subscription-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-subscription-action {
+    align-items: stretch;
+  }
+
+  .profile-subscription-action .primary-button {
+    width: 100%;
+  }
+
+  .profile-subscription-badge {
+    align-self: flex-start;
+  }
+}
+
+.profile-message-card {
+  grid-column: 1 / -1;
 }

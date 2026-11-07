@@ -4,6 +4,7 @@ using VolleyPlanner.API.DTOs.Generation;
 using VolleyPlanner.API.Entities;
 using VolleyPlanner.API.Enums;
 using VolleyPlanner.API.Interfaces;
+using VolleyPlanner.API.Constants;
 
 namespace VolleyPlanner.API.Services;
 
@@ -38,8 +39,43 @@ public class GenerationService : IGenerationService
     }
 
     public async Task<GeneratedTrainingPlanResponseDto> GenerateAsync(
+        int userId,
         GenerateTrainingPlanRequestDto request)
     {
+        var user =
+            await _context.Users
+                .Include(u => u.Subscription)
+                .FirstOrDefaultAsync(u =>
+                    u.Id == userId);
+
+        if (user == null)
+        {
+            throw new Exception(
+                "A felhasználó nem található.");
+        }
+
+        var isAdmin =
+            string.Equals(
+                user.Role,
+                "Admin",
+                StringComparison.OrdinalIgnoreCase);
+
+        var isPremium =
+            user.Subscription != null &&
+            user.Subscription.Status == SubscriptionStatus.Active &&
+            (
+                !user.Subscription.CurrentPeriodEnd.HasValue ||
+                user.Subscription.CurrentPeriodEnd.Value > DateTime.UtcNow
+            );
+
+        if (!isAdmin &&
+            !isPremium &&
+            user.FreeGenerationsUsed >= PremiumPlanConstants.FreeGenerationLimit)
+        {
+            throw new Exception(
+                "Felhasználtad mind az 5 ingyenes automatikus edzésterv-generálási lehetőségedet.");
+        }
+
         if (request.SportTypes == null || request.SportTypes.Count != 1)
         {
             throw new Exception("Egyszerre pontosan egy sportág kiválasztása kötelező.");
@@ -215,14 +251,20 @@ public class GenerationService : IGenerationService
             MatchesSelectedFocus
         );
 
-        if (remainingTotalDuration <= 0)
+       if (remainingTotalDuration <= 0)
         {
-            return BuildResponse(
-                selectedSportType,
-                request,
-                normalizedFocusAreas,
-                selectedItems
-            );
+            var earlyResult =
+                BuildResponse(
+                    selectedSportType,
+                    request,
+                    normalizedFocusAreas,
+                    selectedItems);
+
+            return await CompleteGenerationAsync(
+                user,
+                isAdmin,
+                isPremium,
+                earlyResult);
         }
 
         var focusedMainPool = focusExercises
@@ -321,12 +363,18 @@ public class GenerationService : IGenerationService
                 "Nincs elegendő megfelelő gyakorlat a kért edzésidő teljes kitöltéséhez.");
         }
 
-        return BuildResponse(
-            selectedSportType,
-            request,
-            normalizedFocusAreas,
-            selectedItems
-        );
+       var finalResult =
+            BuildResponse(
+                selectedSportType,
+                request,
+                normalizedFocusAreas,
+                selectedItems);
+
+        return await CompleteGenerationAsync(
+            user,
+            isAdmin,
+            isPremium,
+            finalResult);
     }
 
     private static void AddExercisesUntilTarget(
@@ -374,6 +422,23 @@ public class GenerationService : IGenerationService
             addedMinutes += plannedDuration;
             remainingTotalDuration -= plannedDuration;
         }
+    }
+
+   private async Task<GeneratedTrainingPlanResponseDto>
+        CompleteGenerationAsync(
+            User user,
+            bool isAdmin,
+            bool isPremium,
+            GeneratedTrainingPlanResponseDto result)
+    {
+        if (!isAdmin && !isPremium)
+        {
+            user.FreeGenerationsUsed++;
+
+            await _context.SaveChangesAsync();
+        }
+
+        return result;
     }
 
     private static GeneratedTrainingPlanResponseDto BuildResponse(

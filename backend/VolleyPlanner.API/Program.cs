@@ -57,6 +57,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IGenerationService, GenerationService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 
 // Sportbeli szerepkörök kezelése
 builder.Services.AddScoped<ISportRoleService, SportRoleService>();
@@ -72,6 +73,9 @@ builder.Services.AddScoped<
 
 builder.Services.Configure<EmailSettings>(
     builder.Configuration.GetSection("EmailSettings"));
+
+builder.Services.Configure<StripeSettings>(
+    builder.Configuration.GetSection("Stripe"));
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var key = Encoding.UTF8.GetBytes(jwtSettings["Key"]!);
@@ -133,3 +137,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program
+{
+}

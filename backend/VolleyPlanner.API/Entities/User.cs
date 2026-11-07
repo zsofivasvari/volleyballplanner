@@ -62,6 +62,12 @@ public class User
 
     public string? PlayerCode { get; set; }
 
+    // A sikeresen felhasznált ingyenes automatikus
+    // edzésterv-generálások száma.
+    public int FreeGenerationsUsed { get; set; } = 0;
+
+    public UserSubscription? Subscription { get; set; }
+
     // Technikai jogosultság:
     // User / Admin
     public string Role { get; set; } = "User";

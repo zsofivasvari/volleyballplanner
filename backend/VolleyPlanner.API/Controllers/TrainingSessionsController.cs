@@ -25,9 +25,35 @@ public class TrainingSessionsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TrainingSessionListItemDto>>> GetAll()
     {
-        var sessions = await _context.TrainingSessions
+        var sessionData = await _context.TrainingSessions
+            .AsNoTracking()
             .Where(ts => ts.Status == "Open")
             .OrderBy(ts => ts.StartTime)
+            .Select(ts => new
+            {
+                ts.Id,
+                ts.Title,
+                ts.SportType,
+                ts.StartTime,
+                ts.EndTime,
+                ts.Location,
+                ts.MaxParticipants,
+                ts.TargetLevel,
+                ts.Status,
+                ts.OrganizerUserId,
+                OrganizerName = ts.OrganizerUser.Name,
+
+                ParticipantCount = ts.Bookings.Count(
+                    tb => tb.Status == "Confirmed"
+                ),
+
+                WaitlistCount = ts.Bookings.Count(
+                    tb => tb.Status == "Waitlisted"
+                )
+            })
+            .ToListAsync();
+
+        var sessions = sessionData
             .Select(ts => new TrainingSessionListItemDto
             {
                 Id = ts.Id,
@@ -37,25 +63,15 @@ public class TrainingSessionsController : ControllerBase
                 EndTime = ts.EndTime,
                 Location = ts.Location,
                 MaxParticipants = ts.MaxParticipants,
-
-                ParticipantCount = ts.Bookings.Count(
-                    tb => tb.Status == "Confirmed"
-                ),
-
-                WaitlistCount = ts.Bookings.Count(
-                    tb => tb.Status == "Waitlisted"
-                ),
-
-                IsFull = ts.Bookings.Count(
-                    tb => tb.Status == "Confirmed"
-                ) >= ts.MaxParticipants,
-
+                ParticipantCount = ts.ParticipantCount,
+                WaitlistCount = ts.WaitlistCount,
+                IsFull = ts.ParticipantCount >= ts.MaxParticipants,
                 TargetLevel = ts.TargetLevel,
                 Status = ts.Status,
                 OrganizerUserId = ts.OrganizerUserId,
-                OrganizerName = ts.OrganizerUser.Name
+                OrganizerName = ts.OrganizerName
             })
-            .ToListAsync();
+            .ToList();
 
         return Ok(sessions);
     }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VolleyPlanner.API.DTOs.Generation;
 using VolleyPlanner.API.Interfaces;
+using System.Security.Claims;
 
 namespace VolleyPlanner.API.Controllers;
 
@@ -21,14 +22,30 @@ public class GenerationController : ControllerBase
     public async Task<ActionResult<GeneratedTrainingPlanResponseDto>> Generate(
         GenerateTrainingPlanRequestDto request)
     {
+        var userIdClaim =
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrWhiteSpace(userIdClaim) ||
+            !int.TryParse(userIdClaim, out var userId))
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            var result = await _generationService.GenerateAsync(request);
+            var result =
+                await _generationService.GenerateAsync(
+                    userId,
+                    request);
+
             return Ok(result);
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new
+            {
+                message = ex.Message
+            });
         }
     }
 }

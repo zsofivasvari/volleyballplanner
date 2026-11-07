@@ -4,5 +4,7 @@ namespace VolleyPlanner.API.Interfaces;
 
 public interface IGenerationService
 {
-    Task<GeneratedTrainingPlanResponseDto> GenerateAsync(GenerateTrainingPlanRequestDto request);
+    Task<GeneratedTrainingPlanResponseDto> GenerateAsync(
+        int userId,
+        GenerateTrainingPlanRequestDto request);
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AxiosError } from "axios";
 import AppLayout from "../components/layout/AppLayout";
@@ -8,6 +8,8 @@ import type {
   GenerateTrainingPlanRequest,
   GeneratedTrainingPlanResponse,
 } from "../types/generation";
+import { subscriptionService } from "../services/subscriptionService";
+import type { SubscriptionStatus } from "../types/subscription";
 
 type SupportedSportType = "BeachVolleyball" | "Gym";
 
@@ -52,9 +54,37 @@ function GenerateTrainingPlanPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [subscriptionStatus, setSubscriptionStatus] =
+    useState<SubscriptionStatus | null>(null);
+
+  const [subscriptionLoading, setSubscriptionLoading] =
+    useState(true);
+
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const loadSubscriptionStatus = async () => {
+      try {
+        setSubscriptionLoading(true);
+
+        const status =
+          await subscriptionService.getMyStatus();
+
+        setSubscriptionStatus(status);
+      } catch (err) {
+        console.error(
+          "Nem sikerült lekérni az előfizetési státuszt.",
+          err
+        );
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    };
+
+    void loadSubscriptionStatus();
+  }, []);
 
   const selectedSport: SupportedSportType =
     formData.sportTypes[0] === "Gym" ? "Gym" : "BeachVolleyball";
@@ -218,9 +248,37 @@ function GenerateTrainingPlanPage() {
       playerCount: isGym ? null : formData.playerCount,
     };
 
+    const hasGenerationAccess =
+      subscriptionStatus?.isPremium ||
+      subscriptionStatus?.isAdmin ||
+      (subscriptionStatus?.remainingFreeGenerations ?? 0) > 0;
+
+    if (!subscriptionLoading && !hasGenerationAccess) {
+      setError(
+        "Felhasználtad mind az 5 ingyenes automatikus edzésterv-generálási lehetőségedet."
+      );
+
+      setLoading(false);
+      return;
+    }
+
     try {
-      const result = await generationService.generate(request);
+      const result =
+        await generationService.generate(request);
+
       setGeneratedPlan(result);
+
+      try {
+        const updatedStatus =
+          await subscriptionService.getMyStatus();
+
+        setSubscriptionStatus(updatedStatus);
+      } catch (statusError) {
+        console.error(
+          "Nem sikerült frissíteni az előfizetési státuszt.",
+          statusError
+        );
+      }
 
       setCustomPlanTitle(
         `${result.sportType} terv - ${result.focusAreas.join(", ")}`
@@ -547,6 +605,21 @@ function GenerateTrainingPlanPage() {
               </p>
             )}
           </section>
+
+          {subscriptionStatus && (
+            <div className="generation-subscription-status">
+              {subscriptionStatus.isAdmin ? (
+                <strong>Admin – korlátlan generálás</strong>
+              ) : subscriptionStatus.isPremium ? (
+                <strong>Premium – korlátlan generálás</strong>
+              ) : (
+                <strong>
+                  Még {subscriptionStatus.remainingFreeGenerations} /{" "}
+                  {subscriptionStatus.freeGenerationLimit} ingyenes generálásod maradt
+                </strong>
+              )}
+            </div>
+          )}
 
           <div className="generation-actions">
             <button className="primary-button" type="submit" disabled={loading}>

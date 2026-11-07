@@ -3,6 +3,7 @@ import axios from "axios";
 import AppLayout from "../components/layout/AppLayout";
 import { authService } from "../services/authService";
 import { sportRoleService } from "../services/sportRoleService";
+import { subscriptionService } from "../services/subscriptionService";
 import {
   teamInvitationService,
 } from "../services/teamInvitationService";
@@ -11,6 +12,7 @@ import type {
   UserProfileResponse,
 } from "../types/auth";
 import type { SportRolesResponse } from "../types/sportRole";
+import type { SubscriptionStatus } from "../types/subscription";
 import type {
   TeamInvitation,
 } from "../types/tournament";
@@ -40,6 +42,18 @@ function ProfilePage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [roleError, setRoleError] = useState("");
+  const [roleSuccessMessage, setRoleSuccessMessage] = useState("");
+
+  const [subscriptionStatus, setSubscriptionStatus] =
+    useState<SubscriptionStatus | null>(null);
+
+  const [subscriptionLoading, setSubscriptionLoading] =
+    useState(false);
+
+  const [subscriptionError, setSubscriptionError] =
+    useState("");
+
     const [
       receivedInvitations,
       setReceivedInvitations,
@@ -60,16 +74,22 @@ function ProfilePage() {
           profileData,
           roleData,
           invitationData,
+          subscriptionData,
         ] = await Promise.all([
           authService.getMe(),
           sportRoleService.getMySportRoles(),
           teamInvitationService.getReceived(),
+          subscriptionService.getMyStatus(),
         ]);
 
         setProfile(profileData);
 
         setReceivedInvitations(
           invitationData
+        );
+
+        setSubscriptionStatus(
+          subscriptionData
         );
 
         setPlayerProfileForm({
@@ -124,8 +144,8 @@ function ProfilePage() {
     );
 
   const selectPlayer = () => {
-    setSuccessMessage("");
-    setError("");
+    setRoleSuccessMessage("");
+    setRoleError("");
 
     setRoles({
       isPlayer: true,
@@ -134,8 +154,8 @@ function ProfilePage() {
   };
 
   const selectOrganizerCoach = () => {
-    setSuccessMessage("");
-    setError("");
+    setRoleSuccessMessage("");
+    setRoleError("");
 
     setRoles({
       isPlayer: false,
@@ -145,36 +165,36 @@ function ProfilePage() {
 
   const handleRoleSave = async () => {
     if (roles.isPlayer === roles.isOrganizerCoach) {
-      setError(
+      setRoleError(
         "Pontosan egy sportbeli szerepkört kell kiválasztani."
       );
-      setSuccessMessage("");
+      setRoleSuccessMessage("");
       return;
     }
 
     try {
       setSavingRole(true);
-      setError("");
-      setSuccessMessage("");
+      setRoleError("");
+      setRoleSuccessMessage("");
 
       const updatedRoles =
         await sportRoleService.updateMySportRoles(roles);
 
       setRoles(updatedRoles);
 
-      setSuccessMessage(
+      setRoleSuccessMessage(
         "A sportbeli szerepkör sikeresen mentve."
       );
     } catch (err) {
       console.error(err);
 
       if (axios.isAxiosError(err)) {
-        setError(
+        setRoleError(
           err.response?.data?.message ??
             "Nem sikerült menteni a szerepkört."
         );
       } else {
-        setError(
+        setRoleError(
           "Nem sikerült menteni a szerepkört."
         );
       }
@@ -431,6 +451,158 @@ function ProfilePage() {
       }
     };
 
+  const handleStartSubscription = async () => {
+    try {
+      setSubscriptionLoading(true);
+      setSubscriptionError("");
+
+      const result =
+        await subscriptionService.createCheckoutSession();
+
+      if (!result.checkoutUrl) {
+        setSubscriptionError(
+          "Nem sikerült megnyitni a Stripe fizetési oldalt."
+        );
+        return;
+      }
+
+      window.location.href =
+        result.checkoutUrl;
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setSubscriptionError(
+          err.response?.data?.message ??
+            "Nem sikerült elindítani az előfizetést."
+        );
+      } else {
+        setSubscriptionError(
+          "Nem sikerült elindítani az előfizetést."
+        );
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    try {
+      setSubscriptionLoading(true);
+      setSubscriptionError("");
+
+      await subscriptionService.cancelSubscription();
+
+      const updatedStatus =
+        await subscriptionService.getMyStatus();
+
+      setSubscriptionStatus(updatedStatus);
+      setSuccessMessage(
+        "Az előfizetésed lemondása sikeres. A Premium hozzáférés a jelenlegi időszak végéig aktív marad."
+      );
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setSubscriptionError(
+          err.response?.data?.message ??
+            "Nem sikerült lemondani az előfizetést."
+        );
+      } else {
+        setSubscriptionError(
+          "Nem sikerült lemondani az előfizetést."
+        );
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const handleReactivateSubscription = async () => {
+    try {
+      setSubscriptionLoading(true);
+      setSubscriptionError("");
+
+      await subscriptionService.reactivateSubscription();
+
+      const updatedStatus =
+        await subscriptionService.getMyStatus();
+
+      setSubscriptionStatus(updatedStatus);
+
+      setSuccessMessage(
+        "Az előfizetés automatikus megújítása ismét aktív."
+      );
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setSubscriptionError(
+          err.response?.data?.message ??
+            "Nem sikerült visszakapcsolni az automatikus megújítást."
+        );
+      } else {
+        setSubscriptionError(
+          "Nem sikerült visszakapcsolni az automatikus megújítást."
+        );
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const handleOpenPortal = async () => {
+    try {
+      setSubscriptionLoading(true);
+      setSubscriptionError("");
+
+      const result =
+        await subscriptionService.createPortalSession();
+
+      if (!result.portalUrl) {
+        setSubscriptionError(
+          "Nem sikerült megnyitni az előfizetés-kezelő oldalt."
+        );
+        return;
+      }
+
+      window.location.href =
+        result.portalUrl;
+    } catch (err) {
+      console.error(err);
+
+      if (axios.isAxiosError(err)) {
+        setSubscriptionError(
+          err.response?.data?.message ??
+            "Nem sikerült megnyitni az előfizetés-kezelő oldalt."
+        );
+      } else {
+        setSubscriptionError(
+          "Nem sikerült megnyitni az előfizetés-kezelő oldalt."
+        );
+      }
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const formatSubscriptionDate = (
+    value: string | null
+  ) => {
+    if (!value) {
+      return null;
+    }
+
+    return new Intl.DateTimeFormat(
+      "hu-HU",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }
+    ).format(new Date(value));
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userName");
@@ -460,6 +632,7 @@ function ProfilePage() {
       subtitle="Felhasználói adatok és sportbeli szerepkör kezelése."
     >
       <div className="profile-grid">
+      <div className="profile-column">
         <section className="card profile-info-card">
           <div className="profile-avatar">
             {profile?.name?.charAt(0).toUpperCase() ?? "U"}
@@ -517,6 +690,7 @@ function ProfilePage() {
             )}
           </div>
         </section>
+      </div>
 
         <section className="card profile-role-card">
           <div className="profile-section-heading">
@@ -584,6 +758,20 @@ function ProfilePage() {
                 ? "Mentés..."
                 : "Szerepkör mentése"}
             </button>
+
+            <div className="profile-role-feedback">
+              {roleSuccessMessage && (
+                <p className="success-text profile-role-message">
+                  {roleSuccessMessage}
+                </p>
+              )}
+
+              {roleError && (
+                <p className="error-text profile-role-message">
+                  {roleError}
+                </p>
+              )}
+            </div>
           </div>
         </section>
 
@@ -852,8 +1040,10 @@ function ProfilePage() {
           </section>
         )}
 
+        
+
         {error && (
-          <section className="card">
+          <section className="card profile-message-card">
             <p className="error-text">
               {error}
             </p>
@@ -861,20 +1051,199 @@ function ProfilePage() {
         )}
 
         {successMessage && (
-          <section className="card">
+          <section className="card profile-message-card">
             <p className="success-text">
               {successMessage}
             </p>
           </section>
         )}
 
-        <section className="card profile-account-card">
-          <h2>Fiók</h2>
+        {subscriptionStatus && (
+          <section className="card profile-subscription-card">
+            <div className="profile-subscription-content">
+              <div>
+                <p className="profile-subscription-kicker">
+                  Előfizetés
+                </p>
 
-          <p className="info-text">
-            Itt tudsz kijelentkezni a VolleyMind
-            alkalmazásból.
-          </p>
+                <h2>
+                  {subscriptionStatus.isAdmin
+                    ? "Admin"
+                    : subscriptionStatus.isPremium
+                      ? "VolleyMind Premium"
+                      : subscriptionStatus.subscriptionStatus === "PastDue"
+                        ? "VolleyMind Premium"
+                        : "VolleyMind Free"}
+                </h2>
+
+                {subscriptionStatus.isAdmin ? (
+                  <p className="info-text">
+                    Adminisztrátorként korlátlan automatikus
+                    edzésterv-generálás áll rendelkezésedre.
+                  </p>
+                ) : subscriptionStatus.isPremium ? (
+                  <>
+                    <p className="info-text">
+                      Korlátlan automatikus edzésterv-generálás.
+                    </p>
+
+                    {subscriptionStatus.cancelAtPeriodEnd && (
+                      <p className="profile-subscription-meta">
+                        Az előfizetésed le van mondva, de a jelenlegi
+                        időszak végéig aktív marad.
+                      </p>
+                    )}
+
+                    {subscriptionStatus.currentPeriodEnd && (
+                      <p className="profile-subscription-meta">
+                        {subscriptionStatus.cancelAtPeriodEnd
+                          ? "Az előfizetés eddig aktív:"
+                          : "Következő megújulás:"}{" "}
+                        <strong>
+                          {formatSubscriptionDate(
+                            subscriptionStatus.currentPeriodEnd
+                          )}
+                        </strong>
+                      </p>
+                    )}
+                  </>
+                ) : subscriptionStatus.subscriptionStatus === "PastDue" ? (
+                  <>
+                    <p className="error-text">
+                      A Premium előfizetésed megújítása sikertelen volt.
+                    </p>
+
+                    <p className="profile-subscription-meta">
+                      A Premium funkciók jelenleg nem érhetők el.
+                      Ellenőrizd a fizetési módodat.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() =>
+                        void handleOpenPortal()
+                      }
+                      disabled={subscriptionLoading}
+                      style={{ marginTop: "1rem" }}
+                    >
+                      {subscriptionLoading
+                        ? "Megnyitás..."
+                        : "Fizetési mód kezelése"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="info-text">
+                      5 ingyenes automatikus edzésterv-generálás,
+                      utána Premium előfizetéssel korlátlan használat.
+                    </p>
+
+                    <p className="profile-subscription-meta">
+                      Felhasznált generálások:{" "}
+                      <strong>
+                        {subscriptionStatus.freeGenerationsUsed} /{" "}
+                        {subscriptionStatus.freeGenerationLimit}
+                      </strong>
+                    </p>
+
+                    <p className="profile-subscription-meta">
+                      Hátralévő ingyenes generálások:{" "}
+                      <strong>
+                        {subscriptionStatus.remainingFreeGenerations}
+                      </strong>
+                    </p>
+                  </>
+                )}
+
+                {subscriptionError && (
+                  <p className="error-text profile-subscription-error">
+                    {subscriptionError}
+                  </p>
+                )}
+              </div>
+
+              {!subscriptionStatus.isAdmin &&
+                !subscriptionStatus.isPremium &&
+                subscriptionStatus.subscriptionStatus !== "PastDue" && (
+                  <div className="profile-subscription-action">
+                    <strong>1 999 Ft / hó</strong>
+
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() =>
+                        void handleStartSubscription()
+                      }
+                      disabled={subscriptionLoading}
+                    >
+                      {subscriptionLoading
+                        ? "Átirányítás..."
+                        : "Premium előfizetés"}
+                    </button>
+                  </div>
+                )}
+
+              {subscriptionStatus.isPremium && (
+                <div className="profile-subscription-action">
+                  <div className="profile-subscription-badge">
+                    Premium
+                  </div>
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      void handleOpenPortal()
+                    }
+                    disabled={subscriptionLoading}
+                  >
+                    {subscriptionLoading
+                      ? "Megnyitás..."
+                      : "Előfizetés kezelése"}
+                  </button>
+
+                  {subscriptionStatus.cancelAtPeriodEnd ? (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() =>
+                        void handleReactivateSubscription()
+                      }
+                      disabled={subscriptionLoading}
+                    >
+                      {subscriptionLoading
+                        ? "Visszakapcsolás..."
+                        : "Megújítás visszakapcsolása"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() =>
+                        void handleCancelSubscription()
+                      }
+                      disabled={subscriptionLoading}
+                    >
+                      {subscriptionLoading
+                        ? "Lemondás..."
+                        : "Előfizetés lemondása"}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        <section className="card profile-account-card">
+          <div>
+            <h2>Fiók</h2>
+
+            <p className="info-text">
+              Itt tudsz kijelentkezni a VolleyMind alkalmazásból.
+            </p>
+          </div>
 
           <button
             type="button"

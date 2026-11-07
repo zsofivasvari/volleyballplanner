@@ -705,6 +705,9 @@ namespace VolleyPlanner.API.Migrations
                     b.Property<DateTime?>("EmailConfirmationTokenExpiresAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("FreeGenerationsUsed")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsEmailConfirmed")
                         .HasColumnType("bit");
 
@@ -798,6 +801,61 @@ namespace VolleyPlanner.API.Migrations
                         .IsUnique();
 
                     b.ToTable("UserSportRoles");
+                });
+
+            modelBuilder.Entity("VolleyPlanner.API.Entities.UserSubscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("CancelAtPeriodEnd")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CurrentPeriodEnd")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CurrentPeriodStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProviderCustomerId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProviderSubscriptionId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderCustomerId")
+                        .IsUnique()
+                        .HasFilter("[ProviderCustomerId] IS NOT NULL");
+
+                    b.HasIndex("ProviderSubscriptionId")
+                        .IsUnique()
+                        .HasFilter("[ProviderSubscriptionId] IS NOT NULL");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserSubscriptions");
                 });
 
             modelBuilder.Entity("VolleyPlanner.API.Entities.CalendarEvent", b =>
@@ -1120,6 +1178,17 @@ namespace VolleyPlanner.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("VolleyPlanner.API.Entities.UserSubscription", b =>
+                {
+                    b.HasOne("VolleyPlanner.API.Entities.User", "User")
+                        .WithOne("Subscription")
+                        .HasForeignKey("VolleyPlanner.API.Entities.UserSubscription", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("VolleyPlanner.API.Entities.Exercise", b =>
                 {
                     b.Navigation("ExerciseTags");
@@ -1200,6 +1269,8 @@ namespace VolleyPlanner.API.Migrations
                     b.Navigation("SentTeamInvitations");
 
                     b.Navigation("SportRoles");
+
+                    b.Navigation("Subscription");
 
                     b.Navigation("TeamsAsPlayer1");
 

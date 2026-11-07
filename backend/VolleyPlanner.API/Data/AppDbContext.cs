@@ -14,7 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
     public DbSet<UserSportRole> UserSportRoles => Set<UserSportRole>();
-
+    public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
     public DbSet<Exercise> Exercises => Set<Exercise>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<ExerciseTag> ExerciseTags => Set<ExerciseTag>();
@@ -54,6 +54,31 @@ public class AppDbContext : DbContext
             .HasOne(u => u.Profile)
             .WithOne(p => p.User)
             .HasForeignKey<UserProfile>(p => p.UserId);
+
+        // User - UserSubscription 1:1 kapcsolat
+        modelBuilder.Entity<UserSubscription>()
+            .HasOne(s => s.User)
+            .WithOne(u => u.Subscription)
+            .HasForeignKey<UserSubscription>(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<UserSubscription>()
+            .HasIndex(s => s.UserId)
+            .IsUnique();
+
+        modelBuilder.Entity<UserSubscription>()
+            .HasIndex(s => s.ProviderCustomerId)
+            .IsUnique()
+            .HasFilter("[ProviderCustomerId] IS NOT NULL");
+
+        modelBuilder.Entity<UserSubscription>()
+            .HasIndex(s => s.ProviderSubscriptionId)
+            .IsUnique()
+            .HasFilter("[ProviderSubscriptionId] IS NOT NULL");
+
+        modelBuilder.Entity<UserSubscription>()
+            .Property(s => s.Status)
+            .HasConversion<string>();
 
         // User - UserSportRole 1:N kapcsolat
         modelBuilder.Entity<UserSportRole>()
